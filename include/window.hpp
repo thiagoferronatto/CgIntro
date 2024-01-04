@@ -1,0 +1,39 @@
+#ifndef GL_BOILERPLATE_HPP
+#define GL_BOILERPLATE_HPP
+
+// clang-format off
+#include "glad/glad.h"
+#include "GLFW/glfw3.h"
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_glfw.h"
+#include "imgui/imgui_impl_opengl3.h"
+// clang-format on
+#include "glm/vec3.hpp"
+
+#include <functional>
+#include <stdexcept>
+#include <thread>
+
+class Window {
+public:
+  Window(size_t width, size_t height, const char *title);
+
+  ~Window();
+
+  size_t width() const;
+  size_t height() const;
+
+  bool shouldClose() const;
+  void swapBuffers() const;
+  void pollEvents() const;
+  bool keyIsPressed(int key) const;
+  std::tuple<float, float> getCursorPos() const;
+  void show() const;
+
+private:
+  GLFWwindow *_window{};
+  size_t _width, _height;
+  ImGuiIO *_imguiIo{};
+};
+
+#endif // GL_BOILERPLATE_HPP
