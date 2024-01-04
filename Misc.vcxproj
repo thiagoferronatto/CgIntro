@@ -180,6 +180,9 @@
     <ClCompile Include="src\triangle_mesh.cpp" />
     <ClCompile Include="src\window.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

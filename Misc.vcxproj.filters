@@ -19,6 +19,9 @@
     <Filter Include="Dependencies\imgui">
       <UniqueIdentifier>{eb66a029-c6fc-4815-a9e4-acaecefe9681}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Miscellaneous">
+      <UniqueIdentifier>{1fdd5b5b-0d33-4a96-b881-83b69f8a266b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\custom_assert.hpp">
@@ -119,5 +122,10 @@
     <ClCompile Include="src\ppm.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md">
+      <Filter>Miscellaneous</Filter>
+    </None>
   </ItemGroup>
 </Project>
