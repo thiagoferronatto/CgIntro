@@ -16,6 +16,8 @@ public:
   void rotate(float angle, vec3 xyz) override;
   void scale(vec3 xyz) override;
 
+  void setScale(vec3 xyz) override;
+
   float fov() const;
   float aspect() const;
   float near() const;

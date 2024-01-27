@@ -19,8 +19,9 @@ out vec3 v_n;
 out vec2 v_uv;
 
 void main(void) {
-  v_p = vec3(V * M * vec4(p, 1));
-  v_n = transpose(inverse(mat3(V * M))) * n;
+  mat4 MV = V * M;
+  v_p = vec3(MV * vec4(p, 1));
+  v_n = transpose(inverse(mat3(MV))) * n;
   v_uv = uv;
   gl_Position = P * vec4(v_p, 1);
 }

@@ -36,6 +36,10 @@ void Camera::scale(vec3 xyz) {
   // Cameras should not be scaled
 }
 
+void Camera::setScale(vec3 xyz) {
+  // Cameras should NOT be scaled
+}
+
 float Camera::fov() const { return glm::degrees(_fov); }
 
 float Camera::aspect() const { return _aspect; }

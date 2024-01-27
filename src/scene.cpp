@@ -158,9 +158,12 @@ static void makeMainMenu(Scene *scene, const Window &window, GLuint *&buffers,
         if (ImGui::BeginMenu("Wavefront (OBJ)")) {
           std::string path{"./assets/"};
           for (auto &entry : std::filesystem::directory_iterator{path}) {
-            if (ImGui::MenuItem(entry.path().filename().string().c_str())) {
+            auto filePath{entry.path()};
+            auto fileName{filePath.filename()};
+            if (fileName.extension() == ".obj" &&
+                ImGui::MenuItem(fileName.string().c_str())) {
               scene->addActor<TriangleMesh>(
-                  TriangleMesh::fromObj(entry.path().string()));
+                  TriangleMesh::fromObj(filePath.string()));
               transferObjects(buffers, textures, prevObjAmt, scene->objects());
             }
           }
