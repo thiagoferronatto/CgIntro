@@ -201,7 +201,7 @@ static void makeMainMenu(Scene *scene, const Window &window, GLuint *&buffers,
   }
 }
 
-void Scene::render(const Window &window) {
+void Scene::render(const Window &window, const std::function<void()> &f) {
   using namespace std::chrono;
 
   GLuint *buffers{}, *textures{};
@@ -533,6 +533,9 @@ void Scene::render(const Window &window) {
         glCheck(glDrawElements(GL_TRIANGLES,
                                3 * GLsizei(mesh->triangles().size()),
                                GL_UNSIGNED_INT, nullptr));
+
+        // calling custom loop function after drawing
+        f();
 
       } else {
         log("[WARNING] Attempted to draw unsupported shape, ignoring "

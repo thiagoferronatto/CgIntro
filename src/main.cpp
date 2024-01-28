@@ -22,7 +22,7 @@ int main() {
 
   scene.addCamera(cam);
 
-  scene.render(window);
+  scene.render(window, [&] { mesh->rotate(0.01, {0, 1, 0}); });
 
   return 0;
 }

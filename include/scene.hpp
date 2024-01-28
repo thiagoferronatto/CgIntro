@@ -19,7 +19,8 @@ public:
   void addCamera(std::shared_ptr<Camera> camera);
   void addLight(std::shared_ptr<Light> light);
 
-  void render(const Window &window);
+  void render(
+      const Window &window, const std::function<void()> &f = [] {});
 
   const std::vector<std::shared_ptr<Actor>> &objects() const;
   const std::vector<std::shared_ptr<Light>> &lights() const;
