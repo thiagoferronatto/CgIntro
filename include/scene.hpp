@@ -15,18 +15,18 @@
 
 class Scene {
 public:
-  template <typename T> void addActor(std::shared_ptr<T> object);
+  void addActor(std::shared_ptr<Actor> actor);
   void addCamera(std::shared_ptr<Camera> camera);
   void addLight(std::shared_ptr<Light> light);
 
   void render(
       const Window &window, const std::function<void()> &f = [] {});
 
-  const std::vector<std::shared_ptr<Actor>> &objects() const;
+  const std::vector<std::shared_ptr<Actor>> &actors() const;
   const std::vector<std::shared_ptr<Light>> &lights() const;
 
   struct Options {
-    bool toneMap{}, wireframe{}, desaturate{true};
+    bool toneMap{}, wireframe{}, desaturate{};
   } options;
 
   vec3 ambient{};
@@ -38,15 +38,6 @@ private:
   std::vector<std::shared_ptr<Actor>> _actors;
   std::vector<std::shared_ptr<Light>> _lights;
   std::shared_ptr<TransformableObject> _currentObject;
-  vec3 _ambient{};
 };
-
-template <typename T> void Scene::addActor(std::shared_ptr<T> object) {
-  ASSERT(std::dynamic_pointer_cast<Actor>(object),
-         "type \"%s\" is not an actor",
-         typeid(decltype(object)::element_type).name());
-  _actors.push_back(object);
-  _addChildren(object);
-}
 
 #endif // SCENE_HPP

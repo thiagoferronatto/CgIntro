@@ -14,6 +14,8 @@
 #include "imgui/imgui_impl_opengl3.h"
 // clang-format on
 
+static bool drawUserInterface = false;
+
 void Scene::addCamera(std::shared_ptr<Camera> camera) {
   _cameras.push_back(camera);
   _addChildren(camera);
@@ -24,14 +26,23 @@ void Scene::addLight(std::shared_ptr<Light> light) {
   _addChildren(light);
 }
 
-const std::vector<std::shared_ptr<Actor>> &Scene::objects() const {
+const std::vector<std::shared_ptr<Actor>> &Scene::actors() const {
   return _actors;
+}
+
+const std::vector<std::shared_ptr<Light>> &Scene::lights() const {
+  return _lights;
+}
+
+void Scene::addActor(std::shared_ptr<Actor> actor) {
+  _actors.push_back(actor);
+  _addChildren(actor);
 }
 
 void Scene::_addChildren(std::shared_ptr<Object> object) {
   for (auto child : object->children()) {
     if (auto actor{std::dynamic_pointer_cast<Actor>(child)})
-      addActor<decltype(actor)::element_type>(actor);
+      addActor(actor);
     else if (auto camera{std::dynamic_pointer_cast<Camera>(child)})
       addCamera(camera);
     else if (auto light{std::dynamic_pointer_cast<Light>(child)})
@@ -39,13 +50,13 @@ void Scene::_addChildren(std::shared_ptr<Object> object) {
   }
 }
 
-static void transferObjects(GLuint *&buffers, GLuint *&textures,
-                            size_t &prevObjAmt, auto &objects) {
+static void transferActors(GLuint *&buffers, GLuint *&textures,
+                           size_t &prevObjAmt, auto &actors) {
   using namespace std::chrono;
 
   auto start{steady_clock::now()};
 
-  auto objAmt{objects.size()};
+  auto objAmt{actors.size()};
 
   // vertex positions, normals, indices, and uv
   constexpr size_t buffersPerObject{4};
@@ -69,8 +80,8 @@ static void transferObjects(GLuint *&buffers, GLuint *&textures,
   glCheck(glGenTextures(GLsizei(objAmt), textures));
 
   size_t i{};
-  log("[INFO] Transferring scene data to GPU...\n");
-  for (auto obj : objects) {
+  logMsg("[INFO] Transferring scene data to GPU...\n");
+  for (auto obj : actors) {
     if (auto mesh{std::dynamic_pointer_cast<TriangleMesh>(obj)}) {
       auto &v{mesh->vertices()}, &n{mesh->normals()};
       auto &uv{mesh->uv()};
@@ -144,60 +155,61 @@ static void transferObjects(GLuint *&buffers, GLuint *&textures,
     }
     ++i;
   }
-  prevObjAmt = objects.size();
+  prevObjAmt = actors.size();
   auto end{steady_clock::now()};
-  log("[INFO] Data transfer complete, took %g ms\n",
-      duration_cast<microseconds>(end - start).count() / 1e3f);
+  logMsg("[INFO] Data transfer complete, took %g ms\n",
+         duration_cast<microseconds>(end - start).count() / 1e3f);
 }
 
 static void makeMainMenu(Scene *scene, const Window &window, GLuint *&buffers,
                          GLuint *&textures, size_t &prevObjAmt) {
-  if (ImGui::BeginMainMenuBar()) {
-    if (ImGui::BeginMenu("File")) {
-      if (ImGui::BeginMenu("Import")) {
-        if (ImGui::BeginMenu("Wavefront (OBJ)")) {
-          std::string path{"./assets/"};
-          for (auto &entry : std::filesystem::directory_iterator{path}) {
-            auto filePath{entry.path()};
-            auto fileName{filePath.filename()};
-            if (fileName.extension() == ".obj" &&
-                ImGui::MenuItem(fileName.string().c_str())) {
-              scene->addActor<TriangleMesh>(
-                  TriangleMesh::fromObj(filePath.string()));
-              transferObjects(buffers, textures, prevObjAmt, scene->objects());
+  if (drawUserInterface) {
+    if (ImGui::BeginMainMenuBar()) {
+      if (ImGui::BeginMenu("File")) {
+        if (ImGui::BeginMenu("Import")) {
+          if (ImGui::BeginMenu("Wavefront (OBJ)")) {
+            std::string path{"./assets/"};
+            for (auto &entry : std::filesystem::directory_iterator{path}) {
+              auto filePath{entry.path()};
+              auto fileName{filePath.filename()};
+              if (fileName.extension() == ".obj" &&
+                  ImGui::MenuItem(fileName.string().c_str())) {
+                scene->addActor(TriangleMesh::fromObj(filePath.string()));
+                transferActors(buffers, textures, prevObjAmt, scene->actors());
+              }
             }
+            ImGui::EndMenu();
           }
           ImGui::EndMenu();
         }
         ImGui::EndMenu();
       }
-      ImGui::EndMenu();
-    }
-    if (ImGui::BeginMenu("Edit")) {
-      if (ImGui::BeginMenu("Scene")) {
-        if (ImGui::BeginMenu("Add premade actor")) {
-          if (ImGui::MenuItem("Cube")) {
-            scene->addActor(TriangleMesh::cube());
-            transferObjects(buffers, textures, prevObjAmt, scene->objects());
-          }
-          if (ImGui::MenuItem("Plane")) {
-            scene->addActor(TriangleMesh::plane());
-            transferObjects(buffers, textures, prevObjAmt, scene->objects());
+      if (ImGui::BeginMenu("Edit")) {
+        if (ImGui::BeginMenu("Scene")) {
+          if (ImGui::BeginMenu("Add premade actor")) {
+            if (ImGui::MenuItem("Cube")) {
+              scene->addActor(TriangleMesh::cube());
+              transferActors(buffers, textures, prevObjAmt, scene->actors());
+            }
+            if (ImGui::MenuItem("Plane")) {
+              scene->addActor(TriangleMesh::plane());
+              transferActors(buffers, textures, prevObjAmt, scene->actors());
+            }
+            ImGui::EndMenu();
           }
           ImGui::EndMenu();
         }
         ImGui::EndMenu();
       }
-      ImGui::EndMenu();
-    }
-    if (ImGui::BeginMenu("View")) {
-      if (ImGui::BeginMenu("Render")) {
-        ImGui::MenuItem("Wireframes", "", &scene->options.wireframe);
+      if (ImGui::BeginMenu("View")) {
+        if (ImGui::BeginMenu("Render")) {
+          ImGui::MenuItem("Wireframes", "", &scene->options.wireframe);
+          ImGui::EndMenu();
+        }
         ImGui::EndMenu();
       }
-      ImGui::EndMenu();
+      ImGui::EndMainMenuBar();
     }
-    ImGui::EndMainMenuBar();
   }
 }
 
@@ -206,223 +218,236 @@ void Scene::render(const Window &window, const std::function<void()> &f) {
 
   GLuint *buffers{}, *textures{};
   auto objAmt{_actors.size()};
-  transferObjects(buffers, textures, objAmt, _actors);
+  transferActors(buffers, textures, objAmt, _actors);
 
   GLuint vao;
   glCheck(glGenVertexArrays(1, &vao));
   glCheck(glBindVertexArray(vao));
 
-  log("[INFO] Starting rendering loop\n");
+  bool uWasPressedInPrevFrame = false;
+
+  logMsg("[INFO] Starting rendering loop\n");
   window.show();
   while (!window.shouldClose()) {
+    glClearColor(ambient.x, ambient.y, ambient.z, 1);
     // GUI
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    makeMainMenu(this, window, buffers, textures, objAmt);
+    if (drawUserInterface) {
+      makeMainMenu(this, window, buffers, textures, objAmt);
 
-    ImGui::SetNextWindowPos({0.75f * window.width(), 20});
-    ImGui::SetNextWindowSize({0.25f * window.width(), 0.5f * window.height()});
-    if (ImGui::Begin("Scene", nullptr, ImGuiWindowFlags_NoResize)) {
-      if (ImGui::BeginTabBar("scene_tabs")) {
-        if (ImGui::BeginTabItem("Objects")) {
-          if (ImGui::CollapsingHeader("Actors",
-                                      ImGuiTreeNodeFlags_DefaultOpen)) {
-            auto it{_actors.end()};
-            for (auto &actor : _actors) {
-              if (ImGui::MenuItem(actor->name().c_str()))
-                _currentObject = actor;
-              if (ImGui::BeginPopupContextItem()) {
-                if (ImGui::MenuItem("Remove")) {
-                  if (_currentObject == actor)
-                    _currentObject = nullptr;
-                  it = std::find(_actors.begin(), _actors.end(), actor);
-                  transferObjects(buffers, textures, objAmt, _actors);
-                }
-                ImGui::EndPopup();
-              }
-            }
-            if (it != _actors.end()) {
-              _actors.erase(it);
-              transferObjects(buffers, textures, objAmt, _actors);
-            }
-          }
-          if (ImGui::CollapsingHeader("Cameras",
-                                      ImGuiTreeNodeFlags_DefaultOpen)) {
-            auto it{_cameras.end()};
-            for (auto &cam : _cameras) {
-              if (ImGui::MenuItem(cam->name().c_str()))
-                _currentObject = cam;
-              if (_cameras.size() > 1) {
+      ImGui::SetNextWindowPos({0.75f * window.width(), 20});
+      ImGui::SetNextWindowSize(
+          {0.25f * window.width(), 0.5f * window.height()});
+      if (ImGui::Begin("Scene", nullptr, ImGuiWindowFlags_NoResize)) {
+        if (ImGui::BeginTabBar("scene_tabs")) {
+          if (ImGui::BeginTabItem("Objects")) {
+            if (ImGui::CollapsingHeader("Actors",
+                                        ImGuiTreeNodeFlags_DefaultOpen)) {
+              auto it{_actors.end()};
+              for (auto &actor : _actors) {
+                if (ImGui::MenuItem(actor->name().c_str()))
+                  _currentObject = actor;
                 if (ImGui::BeginPopupContextItem()) {
                   if (ImGui::MenuItem("Remove")) {
-                    if (_currentObject == cam)
+                    if (_currentObject == actor)
                       _currentObject = nullptr;
-                    it = std::find(_cameras.begin(), _cameras.end(), cam);
+                    it = std::find(_actors.begin(), _actors.end(), actor);
+                    transferActors(buffers, textures, objAmt, _actors);
                   }
                   ImGui::EndPopup();
                 }
               }
-            }
-            if (it != _cameras.end())
-              _cameras.erase(it);
-          }
-          if (ImGui::CollapsingHeader("Lights",
-                                      ImGuiTreeNodeFlags_DefaultOpen)) {
-            if (ImGui::Button("Add light"))
-              addLight(std::make_shared<Light>(vec3{1}));
-            auto it{_lights.end()};
-            for (auto light : _lights) {
-              if (ImGui::MenuItem(light->name().c_str()))
-                _currentObject = light;
-              if (ImGui::BeginPopupContextItem()) {
-                if (ImGui::MenuItem("Remove")) {
-                  if (_currentObject == light)
-                    _currentObject = nullptr;
-                  it = std::find(_lights.begin(), _lights.end(), light);
-                }
-                ImGui::EndPopup();
+              if (it != _actors.end()) {
+                _actors.erase(it);
+                transferActors(buffers, textures, objAmt, _actors);
               }
             }
-            if (it != _lights.end())
-              _lights.erase(it);
-          }
-          ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("Properties")) {
-          if (ImGui::ColorEdit3("Ambient", &_ambient.x))
-            glClearColor(_ambient.x, _ambient.y, _ambient.z, 1);
-          ImGui::Checkbox("Desaturate bright colors", &options.desaturate);
-          ImGui::Checkbox("Perform tone mapping", &options.toneMap);
-          ImGui::EndTabItem();
-        }
-        ImGui::EndTabBar();
-      }
-    }
-    ImGui::End();
-
-    ImGui::SetNextWindowPos(
-        {0.75f * window.width(), 0.5f * window.height() + 20});
-    ImGui::SetNextWindowSize(
-        {0.25f * window.width(), 0.5f * window.height() - 20});
-    if (ImGui::Begin("Object properties", nullptr, ImGuiWindowFlags_NoResize)) {
-      if (_currentObject) {
-        ImGui::Text("Selected object: %s", _currentObject->name().c_str());
-        if (ImGui::CollapsingHeader("Transform",
-                                    ImGuiTreeNodeFlags_DefaultOpen)) {
-          auto pos{_currentObject->position()};
-          if (ImGui::DragFloat3("Position", &pos.x, 0.1f)) {
-            auto invt{glm::inverse(_currentObject->transform())};
-            _currentObject->translate(
-                invt * vec4{pos - _currentObject->position(), 0});
-            if (auto cam{std::dynamic_pointer_cast<Camera>(_currentObject)})
-              cam->updateWorldToCamera();
-          }
-          vec3 rotation{_currentObject->rotation()};
-          if (ImGui::DragFloat3("Rotation", &rotation.x, 0.01f, -1e3, 1e3)) {
-            auto tmp{rotation - _currentObject->rotation()};
-            auto scale{_currentObject->scale()};
-            _currentObject->setScale({1, 1, 1});
-            auto invt{glm::inverse(_currentObject->transform())};
-            _currentObject->rotate(tmp.x, invt * vec4{1, 0, 0, 0});
-            _currentObject->rotate(tmp.y, invt * vec4{0, 1, 0, 0});
-            _currentObject->rotate(tmp.z, invt * vec4{0, 0, 1, 0});
-            _currentObject->setScale(scale);
-            if (auto cam{std::dynamic_pointer_cast<Camera>(_currentObject)})
-              cam->updateWorldToCamera();
-          }
-          vec3 scale{_currentObject->scale()};
-          if (ImGui::DragFloat3("Scale", &scale.x, 0.1f, 0.001f, 1e5f)) {
-            _currentObject->setScale(scale);
-          }
-        }
-
-        if (auto actor{std::dynamic_pointer_cast<Actor>(_currentObject)}) {
-          if (ImGui::CollapsingHeader("Material",
-                                      ImGuiTreeNodeFlags_DefaultOpen)) {
-            ImGui::ColorEdit3("Ambient (Ka)", &actor->material.Ka.x);
-            ImGui::ColorEdit3("Diffuse (Kd)", &actor->material.Kd.x);
-            ImGui::ColorEdit3("Diffuse (Ks)", &actor->material.Ks.x);
-            ImGui::DragFloat("Shininess (Ns)", &actor->material.Ns, 0.1, 0);
-          }
-        }
-        if (auto light{std::dynamic_pointer_cast<Light>(_currentObject)}) {
-          if (ImGui::CollapsingHeader("Light properties",
-                                      ImGuiTreeNodeFlags_DefaultOpen)) {
-            ImGui::ColorEdit3("Color", &light->color.x);
-            ImGui::DragFloat("Intensity", &light->intensity, 0.1f, 0, 1e10);
-          }
-        }
-        if (auto cam{std::dynamic_pointer_cast<Camera>(_currentObject)}) {
-          if (ImGui::CollapsingHeader("Camera properties",
-                                      ImGuiTreeNodeFlags_DefaultOpen)) {
-            if (auto fov{cam->fov()};
-                ImGui::SliderFloat("FOV", &fov, 1, 179, "%.3f deg")) {
-              cam->setFov(fov);
-              cam->updatePerspective();
+            if (ImGui::CollapsingHeader("Cameras",
+                                        ImGuiTreeNodeFlags_DefaultOpen)) {
+              auto it{_cameras.end()};
+              for (auto &cam : _cameras) {
+                if (ImGui::MenuItem(cam->name().c_str()))
+                  _currentObject = cam;
+                if (_cameras.size() > 1) {
+                  if (ImGui::BeginPopupContextItem()) {
+                    if (ImGui::MenuItem("Remove")) {
+                      if (_currentObject == cam)
+                        _currentObject = nullptr;
+                      it = std::find(_cameras.begin(), _cameras.end(), cam);
+                    }
+                    ImGui::EndPopup();
+                  }
+                }
+              }
+              if (it != _cameras.end())
+                _cameras.erase(it);
             }
-            if (auto aspect{cam->aspect()};
-                ImGui::SliderFloat("Aspect ratio", &aspect, 0.001, 10)) {
-              cam->setAspect(aspect);
-              cam->updatePerspective();
+            if (ImGui::CollapsingHeader("Lights",
+                                        ImGuiTreeNodeFlags_DefaultOpen)) {
+              if (ImGui::Button("Add light"))
+                addLight(std::make_shared<Light>(vec3{1}));
+              auto it{_lights.end()};
+              for (auto light : _lights) {
+                if (ImGui::MenuItem(light->name().c_str()))
+                  _currentObject = light;
+                if (ImGui::BeginPopupContextItem()) {
+                  if (ImGui::MenuItem("Remove")) {
+                    if (_currentObject == light)
+                      _currentObject = nullptr;
+                    it = std::find(_lights.begin(), _lights.end(), light);
+                  }
+                  ImGui::EndPopup();
+                }
+              }
+              if (it != _lights.end())
+                _lights.erase(it);
             }
-            if (auto near{cam->near()};
-                ImGui::DragFloat("Near plane", &near, 0.1, 0, cam->far())) {
-              cam->setNear(near);
-              cam->updatePerspective();
-            }
-            if (auto far{cam->far()};
-                ImGui::DragFloat("Far plane", &far, 0.1, cam->near(), 1e5)) {
-              cam->setFar(far);
-              cam->updatePerspective();
-            }
+            ImGui::EndTabItem();
           }
+          if (ImGui::BeginTabItem("Properties")) {
+            if (ImGui::ColorEdit3("Ambient", &ambient.x))
+              glClearColor(ambient.x, ambient.y, ambient.z, 1);
+            ImGui::Checkbox("Desaturate bright colors", &options.desaturate);
+            ImGui::Checkbox("Perform tone mapping", &options.toneMap);
+            ImGui::EndTabItem();
+          }
+          ImGui::EndTabBar();
         }
       }
-    }
-    ImGui::End();
+      ImGui::End();
 
-    ImGui::SetNextWindowPos({0, 0.75f * window.height()});
-    ImGui::SetNextWindowSize({0.75f * window.width(), 0.25f * window.height()});
-    if (ImGui::Begin("log", nullptr,
-                     ImGuiWindowFlags_NoTitleBar |
-                         ImGuiWindowFlags_AlwaysVerticalScrollbar |
-                         ImGuiWindowFlags_NoResize)) {
-      ImGui::Text(globalLog.c_str());
+      ImGui::SetNextWindowPos(
+          {0.75f * window.width(), 0.5f * window.height() + 20});
+      ImGui::SetNextWindowSize(
+          {0.25f * window.width(), 0.5f * window.height() - 20});
+      if (ImGui::Begin("Object properties", nullptr,
+                       ImGuiWindowFlags_NoResize)) {
+        if (_currentObject) {
+          ImGui::Text("Selected object: %s", _currentObject->name().c_str());
+          if (ImGui::CollapsingHeader("Transform",
+                                      ImGuiTreeNodeFlags_DefaultOpen)) {
+            auto pos{_currentObject->position()};
+            if (ImGui::DragFloat3("Position", &pos.x, 0.1f)) {
+              auto invt{glm::inverse(_currentObject->transform())};
+              _currentObject->translate(
+                  vec4{pos - _currentObject->position(), 0});
+              if (auto cam{std::dynamic_pointer_cast<Camera>(_currentObject)})
+                cam->updateWorldToCamera();
+            }
+            vec3 rotation{_currentObject->rotation()};
+            if (ImGui::DragFloat3("Rotation", &rotation.x, 0.01f, -1e3, 1e3,
+                                  "XYZ")) {
+              auto tmp{rotation - _currentObject->rotation()};
+              _currentObject->rotate(tmp);
+              if (auto cam{std::dynamic_pointer_cast<Camera>(_currentObject)})
+                cam->updateWorldToCamera();
+            }
+            vec3 scale{_currentObject->scale()};
+            if (ImGui::DragFloat3("Scale", &scale.x, 0.1f, 0.001f, 1e5f)) {
+              _currentObject->setScale(scale);
+            }
+          }
+
+          if (auto actor{std::dynamic_pointer_cast<Actor>(_currentObject)}) {
+            if (ImGui::CollapsingHeader("Material",
+                                        ImGuiTreeNodeFlags_DefaultOpen)) {
+              ImGui::ColorEdit3("Ambient (Ka)", &actor->material.Ka.x);
+              ImGui::ColorEdit3("Diffuse (Kd)", &actor->material.Kd.x);
+              ImGui::ColorEdit3("Specular (Ks)", &actor->material.Ks.x);
+              ImGui::DragFloat("Shininess (Ns)", &actor->material.Ns, 0.1, 0);
+            }
+          }
+          if (auto light{std::dynamic_pointer_cast<Light>(_currentObject)}) {
+            if (ImGui::CollapsingHeader("Light properties",
+                                        ImGuiTreeNodeFlags_DefaultOpen)) {
+              ImGui::ColorEdit3("Color", &light->color.x);
+              ImGui::DragFloat("Intensity", &light->intensity, 0.1f, 0, 1e10);
+            }
+          }
+          if (auto cam{std::dynamic_pointer_cast<Camera>(_currentObject)}) {
+            if (ImGui::CollapsingHeader("Camera properties",
+                                        ImGuiTreeNodeFlags_DefaultOpen)) {
+              if (auto fov{cam->fov()};
+                  ImGui::SliderFloat("FOV", &fov, 1, 179, "%.3f deg")) {
+                cam->setFov(fov);
+                cam->updatePerspective();
+              }
+              if (auto aspect{cam->aspect()};
+                  ImGui::SliderFloat("Aspect ratio", &aspect, 0.001, 10)) {
+                cam->setAspect(aspect);
+                cam->updatePerspective();
+              }
+              if (auto near{cam->near()};
+                  ImGui::DragFloat("Near plane", &near, 0.1, 0, cam->far())) {
+                cam->setNear(near);
+                cam->updatePerspective();
+              }
+              if (auto far{cam->far()};
+                  ImGui::DragFloat("Far plane", &far, 0.1, cam->near(), 1e5)) {
+                cam->setFar(far);
+                cam->updatePerspective();
+              }
+            }
+          }
+        }
+      }
+      ImGui::End();
+
+      ImGui::SetNextWindowPos({0, 0.75f * window.height()});
+      ImGui::SetNextWindowSize(
+          {0.75f * window.width(), 0.25f * window.height()});
+      if (ImGui::Begin("log", nullptr,
+                       ImGuiWindowFlags_NoTitleBar |
+                           ImGuiWindowFlags_AlwaysVerticalScrollbar |
+                           ImGuiWindowFlags_NoResize)) {
+        ImGui::Text(globalLog.c_str());
+      }
+      ImGui::End();
     }
-    ImGui::End();
 
     glCheck(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT |
                     GL_STENCIL_BUFFER_BIT));
 
     // DEBUG CONTROLS
     if (window.keyIsPressed(GLFW_KEY_ESCAPE))
-      _cameras[0]->translate(-_cameras[0]->transform()[3]);
+      _cameras[0]->setPosition({});
     if (window.keyIsPressed(GLFW_KEY_W))
-      _cameras[0]->translate({0, 0, -0.1});
+      _cameras[0]->translate(_cameras[0]->transform() * vec4{0, 0, -0.025, 0});
     if (window.keyIsPressed(GLFW_KEY_A))
-      _cameras[0]->translate({-0.1, 0, 0});
+      _cameras[0]->translate(_cameras[0]->transform() * vec4{-0.025, 0, 0, 0});
     if (window.keyIsPressed(GLFW_KEY_S))
-      _cameras[0]->translate({0, 0, 0.1});
+      _cameras[0]->translate(_cameras[0]->transform() * vec4{0, 0, 0.025, 0});
     if (window.keyIsPressed(GLFW_KEY_D))
-      _cameras[0]->translate({0.1, 0, 0});
+      _cameras[0]->translate(_cameras[0]->transform() * vec4{0.025, 0, 0, 0});
     if (window.keyIsPressed(GLFW_KEY_SPACE))
-      _cameras[0]->translate({0, 0.1, 0});
+      _cameras[0]->translate({0, 0.025, 0});
     if (window.keyIsPressed(GLFW_KEY_LEFT_CONTROL))
-      _cameras[0]->translate({0, -0.1, 0});
+      _cameras[0]->translate({0, -0.025, 0});
     if (window.keyIsPressed(GLFW_KEY_Q))
-      _cameras[0]->rotate(glm::radians(1.0f), {0, 1, 0});
+      _cameras[0]->rotate({0, glm::radians(-1.0f), 0});
     if (window.keyIsPressed(GLFW_KEY_E))
-      _cameras[0]->rotate(glm::radians(-1.0f), {0, 1, 0});
+      _cameras[0]->rotate({0, glm::radians(1.0f), 0});
     if (window.keyIsPressed(GLFW_KEY_R))
-      _cameras[0]->rotate(glm::radians(1.0f), {1, 0, 0});
+      _cameras[0]->rotate(_cameras[0]->transform() *
+                          vec4{glm::radians(-1.0f), 0, 0, 0});
     if (window.keyIsPressed(GLFW_KEY_F))
-      _cameras[0]->rotate(glm::radians(-1.0f), {1, 0, 0});
+      _cameras[0]->rotate(_cameras[0]->transform() *
+                          vec4{glm::radians(1.0f), 0, 0, 0});
     if (window.keyIsPressed(GLFW_KEY_Z))
       _cameras[0]->setFov(fmaxf(_cameras[0]->fov() - 1.0f, 0.1));
     if (window.keyIsPressed(GLFW_KEY_C))
       _cameras[0]->setFov(fminf(_cameras[0]->fov() + 1.0f, 179));
+    if (window.keyIsPressed(GLFW_KEY_U)) {
+      if (!uWasPressedInPrevFrame) {
+        drawUserInterface = !drawUserInterface;
+      }
+      uWasPressedInPrevFrame = true;
+    } else {
+      uWasPressedInPrevFrame = false;
+    }
     // END OF DEBUG CONTROLS
 
     unsigned i = 0;
@@ -489,7 +514,7 @@ void Scene::render(const Window &window, const std::function<void()> &f) {
         auto materialDLoc{glGetUniformLocation(program, "material.d")};
         glCheck(glUniform1f(materialDLoc, mesh->material.d));
         auto ambientLoc{glGetUniformLocation(program, "ambient")};
-        glCheck(glUniform3fv(ambientLoc, 1, &_ambient.x));
+        glCheck(glUniform3fv(ambientLoc, 1, &ambient.x));
 
         // UI state and rendering options
         auto selectedLoc{glGetUniformLocation(program, "selected")};
@@ -534,12 +559,18 @@ void Scene::render(const Window &window, const std::function<void()> &f) {
                                3 * GLsizei(mesh->triangles().size()),
                                GL_UNSIGNED_INT, nullptr));
 
+        auto actorAmount{_actors.size()};
+
         // calling custom loop function after drawing
         f();
 
+        // just in case the user dynamically adds more actors
+        if (auto newAmount = _actors.size(); newAmount != actorAmount)
+          transferActors(buffers, textures, actorAmount, _actors);
+
       } else {
-        log("[WARNING] Attempted to draw unsupported shape, ignoring "
-            "request\n");
+        logMsg("[WARNING] Attempted to draw unsupported shape, ignoring "
+               "request\n");
       }
       ++i;
     }
@@ -551,12 +582,13 @@ void Scene::render(const Window &window, const std::function<void()> &f) {
     window.swapBuffers();
     window.pollEvents();
   }
-  log("[INFO] Rendering loop ended\n");
-  log("[INFO] Freeing GPU memory\n");
+  logMsg("[INFO] Rendering loop ended\n");
+  logMsg("[INFO] Freeing GPU memory\n");
 
   glCheck(glDeleteBuffers(3 * GLsizei(objAmt), buffers));
-  log("[INFO] Done\n");
-  log("[INFO] Freeing CPU memory\n");
+  logMsg("[INFO] Done\n");
+  logMsg("[INFO] Freeing CPU memory\n");
   delete[] buffers;
-  log("[INFO] Done\n");
+  logMsg("[INFO] Done\n");
+  logMsg("[INFO] Terminating...\n");
 }

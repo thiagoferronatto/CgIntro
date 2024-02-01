@@ -27,13 +27,18 @@ void Camera::translate(vec3 xyz) {
   updateWorldToCamera();
 }
 
-void Camera::rotate(float angle, vec3 xyz) {
-  this->TransformableObject::rotate(angle, xyz);
+void Camera::rotate(vec3 euler) {
+  this->TransformableObject::rotate(euler);
   updateWorldToCamera();
 }
 
 void Camera::scale(vec3 xyz) {
   // Cameras should not be scaled
+}
+
+void Camera::setPosition(vec3 xyz) {
+  this->TransformableObject::setPosition(xyz);
+  updateWorldToCamera();
 }
 
 void Camera::setScale(vec3 xyz) {

@@ -13,9 +13,10 @@ public:
   mat4 worldToCamera() const;
 
   void translate(vec3 xyz) override;
-  void rotate(float angle, vec3 xyz) override;
+  void rotate(vec3 euler) override;
   void scale(vec3 xyz) override;
 
+  void setPosition(vec3 xyz) override;
   void setScale(vec3 xyz) override;
 
   float fov() const;

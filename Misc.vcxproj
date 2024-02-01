@@ -134,6 +134,7 @@
       <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
+      <AdditionalOptions>/arch:AVX /arch:AVX2 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -145,18 +146,22 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="include\aabb.hpp" />
     <ClInclude Include="include\actor.hpp" />
+    <ClInclude Include="include\boundable.hpp" />
     <ClInclude Include="include\gl_util.hpp" />
     <ClInclude Include="include\light.hpp" />
     <ClInclude Include="include\log.hpp" />
     <ClInclude Include="include\material.hpp" />
     <ClInclude Include="include\object.hpp" />
     <ClInclude Include="include\ppm.hpp" />
+    <ClInclude Include="include\rigid_body.hpp" />
     <ClInclude Include="include\scene.hpp" />
     <ClInclude Include="include\shader_sources.hpp" />
     <ClInclude Include="include\camera.hpp" />
     <ClInclude Include="include\custom_assert.hpp" />
     <ClInclude Include="include\transformable_object.hpp" />
+    <ClInclude Include="include\triangle_intersection.hpp" />
     <ClInclude Include="include\triangle_mesh.hpp" />
     <ClInclude Include="include\window.hpp" />
   </ItemGroup>
@@ -170,13 +175,16 @@
     <ClCompile Include="dependencies\imgui\imgui_tables.cpp" />
     <ClCompile Include="dependencies\imgui\imgui_widgets.cpp" />
     <ClCompile Include="src\actor.cpp" />
+    <ClCompile Include="src\boundable.cpp" />
     <ClCompile Include="src\camera.cpp" />
     <ClCompile Include="src\light.cpp" />
     <ClCompile Include="src\ppm.cpp" />
+    <ClCompile Include="src\rigid_body.cpp" />
     <ClCompile Include="src\scene.cpp" />
     <ClCompile Include="src\transformable_object.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\object.cpp" />
+    <ClCompile Include="src\triangle_intersection.cpp" />
     <ClCompile Include="src\triangle_mesh.cpp" />
     <ClCompile Include="src\window.cpp" />
   </ItemGroup>

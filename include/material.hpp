@@ -6,7 +6,7 @@
 #include "glm/glm.hpp"
 
 struct Material {
-  glm::vec3 Ka{0.1f};   // ambient color
+  glm::vec3 Ka{0.35f};  // ambient color
   glm::vec3 Kd{1.0f};   // diffuse color
   glm::vec3 Ks{1.0f};   // specular color
   float Ns{1000.0f};    // shininess

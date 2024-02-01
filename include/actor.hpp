@@ -2,9 +2,10 @@
 #define ACTOR_HPP
 
 #include "material.hpp"
+#include "rigid_body.hpp"
 #include "transformable_object.hpp"
 
-class Actor : public TransformableObject {
+class Actor : public TransformableObject, public RigidBody {
 public:
   Actor(std::string name);
   Actor(std::string name, Material m);

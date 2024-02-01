@@ -8,13 +8,13 @@
 PortablePixelMap::PortablePixelMap(const std::string &file) {
   std::ifstream is{file};
   if (!is) {
-    log("[ERROR] Could not open file %s, terminating", file.c_str());
+    logMsg("[ERROR] Could not open file %s, terminating", file.c_str());
     std::terminate();
   }
   std::string tmp;
   std::getline(is, tmp);
   if (tmp != "P6") {
-    log("[ERROR] Invalid PPM file", file.c_str());
+    logMsg("[ERROR] Invalid PPM file", file.c_str());
     std::terminate();
   }
   std::getline(is, tmp);

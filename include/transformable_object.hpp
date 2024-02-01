@@ -16,7 +16,7 @@ public:
   TransformableObject &operator=(TransformableObject &&other) noexcept;
 
   virtual void translate(vec3 xyz);
-  virtual void rotate(float angle, vec3 axis);
+  virtual void rotate(vec3 euler);
   virtual void scale(vec3 xyz);
 
   virtual vec3 position() const;

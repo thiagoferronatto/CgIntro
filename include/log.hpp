@@ -6,7 +6,7 @@
 
 inline std::string globalLog;
 
-inline void log(const char *fmt, ...) {
+inline void logMsg(const char *fmt, ...) {
   char str[1024];
   va_list argList;
   va_start(argList, fmt);

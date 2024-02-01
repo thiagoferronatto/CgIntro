@@ -66,6 +66,18 @@
     <ClInclude Include="include\ppm.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\triangle_intersection.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\aabb.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\boundable.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\rigid_body.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp">
@@ -120,6 +132,15 @@
       <Filter>Dependencies</Filter>
     </ClCompile>
     <ClCompile Include="src\ppm.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\boundable.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\rigid_body.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\triangle_intersection.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

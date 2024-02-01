@@ -32,28 +32,58 @@ skip:
 }
 
 void TransformableObject::translate(vec3 xyz) {
-  _transform = glm::translate(_transform, xyz);
+  _transform[3].x += xyz.x;
+  _transform[3].y += xyz.y;
+  _transform[3].z += xyz.z;
+  //_transform = glm::translate(_transform, xyz / scale());
   for (auto child : _children)
     if (auto transChild{std::dynamic_pointer_cast<TransformableObject>(child)})
       transChild->translate(xyz);
 }
 
-void TransformableObject::rotate(float angle, vec3 axis) {
+void TransformableObject::rotate(vec3 euler) {
   vec3 s{scale()};
+  // clang-format off
+  mat4 rx{
+    1, 0, 0, 0,
+    0, cos(euler.x), -sin(euler.x), 0,
+    0, sin(euler.x), cos(euler.x), 0,
+    0, 0, 0, 1
+  };
+  mat4 ry{
+    cos(euler.y), 0, sin(euler.y), 0,
+    0, 1, 0, 0,
+    -sin(euler.y), 0, cos(euler.y), 0,
+    0, 0, 0, 1
+  };
+  mat4 rz{
+    cos(euler.z), -sin(euler.z), 0, 0,
+    sin(euler.z), cos(euler.z), 0, 0,
+    0, 0, 1, 0,
+    0, 0, 0, 1
+  };
+  // clang-format on
+  auto pos = position();
+  translate(-pos);
   _transform[0] /= s.x;
   _transform[1] /= s.y;
   _transform[2] /= s.z;
-  _transform = glm::rotate(_transform, angle, axis);
+  _transform = rz * ry * rx * _transform;
   _transform[0] *= s.x;
   _transform[1] *= s.y;
   _transform[2] *= s.z;
+  translate(pos);
   for (auto child : _children)
     if (auto transChild{std::dynamic_pointer_cast<TransformableObject>(child)})
-      transChild->rotate(angle, axis);
+      transChild->rotate(euler);
 }
 
 void TransformableObject::scale(vec3 xyz) {
-  _transform = glm::scale(_transform, xyz);
+  xyz /= scale();
+  _transform[0] *= xyz.x;
+  _transform[1] *= xyz.y;
+  _transform[2] *= xyz.z;
+  //_transform = glm::scale(_transform, xyz);
   for (auto child : _children)
     if (auto transChild{std::dynamic_pointer_cast<TransformableObject>(child)})
       transChild->scale(xyz);
