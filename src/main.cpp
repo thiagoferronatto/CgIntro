@@ -13,7 +13,7 @@ int main() {
 
   Scene scene;
 
-  auto mazeBall = TriangleMesh::fromObj("assets/quadball.obj");
+  auto mazeBall = TriangleMesh::fromObj("assets/icosphere.obj");
   mazeBall->material.Kd = {1, 0, 0};
   mazeBall->scale({0.5, 0.5, 0.5});
   mazeBall->translate({0, 8, 0});
@@ -57,25 +57,25 @@ int main() {
   leftWallPlane->_inverseMass = 0;       // setting infinite mass
   scene.addActor(leftWallPlane);
 
-  auto bouncingBall1 = TriangleMesh::fromObj("assets/quadball.obj");
+  auto bouncingBall1 = TriangleMesh::fromObj("assets/icosphere.obj");
   bouncingBall1->material.Kd = {0, 1, 0};
   bouncingBall1->scale({0.5, 0.5, 0.5});
-  bouncingBall1->translate({3, 4, -0.01});
-  bouncingBall1->_velocity = {0.01, 0.005, 0};
+  bouncingBall1->translate({-15, 4, 15});
+  bouncingBall1->_velocity = {0.0035, 0.005, -0.0035};
   bouncingBall1->initializeRigidBody(1);
   scene.addActor(bouncingBall1);
 
-  auto bouncingBall2 = TriangleMesh::fromObj("assets/quadball.obj");
+  auto bouncingBall2 = TriangleMesh::fromObj("assets/icosphere.obj");
   bouncingBall2->material.Kd = {0, 0, 1};
   bouncingBall2->scale({0.5, 0.5, 0.5});
-  bouncingBall2->translate({15, 4, 0.01});
-  bouncingBall2->_velocity = {-0.01, 0.005, 0};
+  bouncingBall2->translate({15, 4, 15});
+  bouncingBall2->_velocity = {-0.0035, 0.005, -0.0035};
   bouncingBall2->initializeRigidBody(1);
   scene.addActor(bouncingBall2);
 
   auto ground = TriangleMesh::fromObj("assets/sandbox.obj");
-  ground->scale({15, 2, 15});
-  ground->translate({0, -3, 0});
+  ground->scale({15, 5, 15});
+  ground->translate({0, -3.5, 0});
   ground->initializeRigidBody(1); // temporary mass
   ground->_inverseMass = 0;       // setting infinite mass
   scene.addActor(ground);
@@ -98,9 +98,11 @@ int main() {
   scene.addLight(light);
 
   auto cam{std::make_shared<Camera>("cam_1", glm::radians(74.0f),
-                                    float(w) / float(h), 0.1f, 1000.0f)};
-  cam->translate({0, 10, 20});
+                                    float(w) / float(h), 1.0f, 100.0f)};
+  cam->translate({0, 15, 20});
   cam->rotate({glm::radians(45.0f), 0, 0});
+  cam->translate(vec3{cam->transform() * vec4{0, 0, 50, 0}});
+  cam->setFov(20);
   scene.addCamera(cam);
 
   scene.ambient = {};
