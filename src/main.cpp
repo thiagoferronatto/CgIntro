@@ -5,7 +5,9 @@
 #include "triangle_intersection.hpp"
 #include "window.hpp"
 
+#include <algorithm>
 #include <chrono>
+#include <unordered_map>
 
 int main() {
   constexpr size_t w{1600}, h{900};
@@ -120,20 +122,27 @@ int main() {
     auto before = std::chrono::steady_clock::now();
 
     // COLLISION DETECTION
-    std::vector<ActorPair> donePairs;
+
+    // hash table to keep track of pairs of objects
+    // already checked in the current frame
+    auto n{scene.actors().size()};
+    std::unordered_map<uintptr_t, bool> donePairs_{n * n};
+    for (auto &[_, v] : donePairs_)
+      v = false;
+
     for (auto &actor1 : scene.actors()) {
       if (!actor1->isBound())
         actor1->bound();
       for (auto &actor2 : scene.actors()) {
         if (actor2 == actor1)
           continue;
-        // this seems excessive, try using a hash table with XORed ptrs as keys,
-        // that way it'd have one entry per pair since A ^ B == B ^ A
-        if (std::find(donePairs.begin(), donePairs.end(),
-                      ActorPair{actor1, actor2}) != donePairs.end())
+
+        // efficiently discarding checked pairs
+        auto idx{(uintptr_t)actor1.get() ^ (uintptr_t)actor2.get()};
+        if (donePairs_[idx])
           continue;
-        donePairs.push_back({actor1, actor2});
-        donePairs.push_back({actor2, actor1});
+        donePairs_[idx] = true;
+
         if (!actor2->isBound())
           actor2->bound();
         // broad check
@@ -179,7 +188,7 @@ int main() {
               }
               auto p = 0.5f * (a + b); // point of collision
 
-              constexpr float restitution{.9825};
+              constexpr float restitution{.9825f};
 
               // TODO: currently using the normal of the second mesh, but
               //       should figure out which one (n1 or n2) to use based on
