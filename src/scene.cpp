@@ -50,7 +50,8 @@ void Scene::_addChildren(std::shared_ptr<Object> object) {
   }
 }
 
-static void transferActors(GLuint *&buffers, GLuint *&textures,
+static void transferActors(std::shared_ptr<GLuint[]> &buffers,
+                           std::shared_ptr<GLuint[]> &textures,
                            size_t &prevObjAmt, auto &actors) {
   using namespace std::chrono;
 
@@ -61,23 +62,22 @@ static void transferActors(GLuint *&buffers, GLuint *&textures,
   // vertex positions, normals, indices, and uv
   constexpr size_t buffersPerObject{4};
 
-  if (buffers) {
-    glCheck(glDeleteBuffers(buffersPerObject * GLsizei(prevObjAmt), buffers));
-    delete[] buffers;
-  }
-  buffers = new GLuint[buffersPerObject * objAmt];
+  if (buffers)
+    glCheck(
+        glDeleteBuffers(buffersPerObject * GLsizei(prevObjAmt), buffers.get()));
 
-  if (textures) {
-    glCheck(glDeleteTextures(GLsizei(prevObjAmt), textures));
-    delete[] textures;
-  }
-  textures = new GLuint[objAmt];
+  buffers = std::make_shared<GLuint[]>(
+      buffersPerObject * objAmt); // new GLuint[buffersPerObject * objAmt];
+
+  if (textures)
+    glCheck(glDeleteTextures(GLsizei(prevObjAmt), textures.get()));
+  textures = std::make_shared<GLuint[]>(objAmt); // new GLuint[objAmt];
 
   // generating buffers for each object
-  glCheck(glGenBuffers(buffersPerObject * GLsizei(objAmt), buffers));
+  glCheck(glGenBuffers(buffersPerObject * GLsizei(objAmt), buffers.get()));
 
   // generating 1 texture for each object (even if it remains unused)
-  glCheck(glGenTextures(GLsizei(objAmt), textures));
+  glCheck(glGenTextures(GLsizei(objAmt), textures.get()));
 
   size_t i{};
   logMsg("[INFO] Transferring scene data to GPU...\n");
@@ -161,8 +161,10 @@ static void transferActors(GLuint *&buffers, GLuint *&textures,
          duration_cast<microseconds>(end - start).count() / 1e3f);
 }
 
-static void makeMainMenu(Scene *scene, const Window &window, GLuint *&buffers,
-                         GLuint *&textures, size_t &prevObjAmt) {
+static void makeMainMenu(Scene *scene, const Window &window,
+                         std::shared_ptr<GLuint[]> &buffers,
+                         std::shared_ptr<GLuint[]> &textures,
+                         size_t &prevObjAmt) {
   if (drawUserInterface) {
     if (ImGui::BeginMainMenuBar()) {
       if (ImGui::BeginMenu("File")) {
@@ -216,7 +218,7 @@ static void makeMainMenu(Scene *scene, const Window &window, GLuint *&buffers,
 void Scene::render(const Window &window, const std::function<void()> &f) {
   using namespace std::chrono;
 
-  GLuint *buffers{}, *textures{};
+  std::shared_ptr<GLuint[]> buffers{}, textures{};
   auto objAmt{_actors.size()};
   transferActors(buffers, textures, objAmt, _actors);
 
@@ -241,7 +243,7 @@ void Scene::render(const Window &window, const std::function<void()> &f) {
       ImGui::SetNextWindowPos({0.75f * window.width(), 20});
       ImGui::SetNextWindowSize(
           {0.25f * window.width(), 0.5f * window.height()});
-      if (ImGui::Begin("Scene", nullptr, ImGuiWindowFlags_NoResize)) {
+      if (ImGui::Begin("Scene", nullptr)) {
         if (ImGui::BeginTabBar("scene_tabs")) {
           if (ImGui::BeginTabItem("Objects")) {
             if (ImGui::CollapsingHeader("Actors",
@@ -323,8 +325,7 @@ void Scene::render(const Window &window, const std::function<void()> &f) {
           {0.75f * window.width(), 0.5f * window.height() + 20});
       ImGui::SetNextWindowSize(
           {0.25f * window.width(), 0.5f * window.height() - 20});
-      if (ImGui::Begin("Object properties", nullptr,
-                       ImGuiWindowFlags_NoResize)) {
+      if (ImGui::Begin("Object properties", nullptr)) {
         if (_currentObject) {
           ImGui::Text("Selected object: %s", _currentObject->name().c_str());
           if (ImGui::CollapsingHeader("Transform",
@@ -412,20 +413,21 @@ void Scene::render(const Window &window, const std::function<void()> &f) {
                     GL_STENCIL_BUFFER_BIT));
 
     // DEBUG CONTROLS
+    constexpr float cspd{0.5};
     if (window.keyIsPressed(GLFW_KEY_ESCAPE))
       _cameras[0]->setPosition({});
     if (window.keyIsPressed(GLFW_KEY_W))
-      _cameras[0]->translate(_cameras[0]->transform() * vec4{0, 0, -0.025, 0});
+      _cameras[0]->translate(_cameras[0]->transform() * vec4{0, 0, -cspd, 0});
     if (window.keyIsPressed(GLFW_KEY_A))
-      _cameras[0]->translate(_cameras[0]->transform() * vec4{-0.025, 0, 0, 0});
+      _cameras[0]->translate(_cameras[0]->transform() * vec4{-cspd, 0, 0, 0});
     if (window.keyIsPressed(GLFW_KEY_S))
-      _cameras[0]->translate(_cameras[0]->transform() * vec4{0, 0, 0.025, 0});
+      _cameras[0]->translate(_cameras[0]->transform() * vec4{0, 0, cspd, 0});
     if (window.keyIsPressed(GLFW_KEY_D))
-      _cameras[0]->translate(_cameras[0]->transform() * vec4{0.025, 0, 0, 0});
+      _cameras[0]->translate(_cameras[0]->transform() * vec4{cspd, 0, 0, 0});
     if (window.keyIsPressed(GLFW_KEY_SPACE))
-      _cameras[0]->translate({0, 0.025, 0});
+      _cameras[0]->translate({0, cspd, 0});
     if (window.keyIsPressed(GLFW_KEY_LEFT_CONTROL))
-      _cameras[0]->translate({0, -0.025, 0});
+      _cameras[0]->translate({0, -cspd, 0});
     if (window.keyIsPressed(GLFW_KEY_Q))
       _cameras[0]->rotate({0, glm::radians(-1.0f), 0});
     if (window.keyIsPressed(GLFW_KEY_E))
@@ -448,7 +450,7 @@ void Scene::render(const Window &window, const std::function<void()> &f) {
     } else {
       uWasPressedInPrevFrame = false;
     }
-    // END OF DEBUG CONTROLS
+    //  END OF DEBUG CONTROLS
 
     unsigned i = 0;
     for (auto obj : _actors) {
@@ -478,19 +480,20 @@ void Scene::render(const Window &window, const std::function<void()> &f) {
 
         // fragment shader
         auto fsLoc{glCreateShader(GL_FRAGMENT_SHADER)};
-        auto fragShader{triangleMeshFragShader(_lights.size())};
-        auto bah = fragShader.c_str();
-        glCheck(glShaderSource(fsLoc, 1, &bah, nullptr));
+        glCheck(glShaderSource(fsLoc, 1, &triangleMeshFragShader, nullptr));
         glCheck(glCompileShader(fsLoc));
         glCheckShaderCompilation(fsLoc);
 
         // program
         auto program{glCreateProgram()};
-        glCheck(glAttachShader(program, vsLoc));
-        glCheck(glAttachShader(program, fsLoc));
-        glCheck(glLinkProgram(program));
-        glCheckProgramLinkage(program);
-        glCheck(glUseProgram(program));
+        glCheck(glAttachShader(program, vsLoc)); // sending vs to vram
+        glCheck(glDeleteShader(vsLoc));          // vs in vram, freeing ram
+        glCheck(glAttachShader(program, fsLoc)); // sending fs to vram
+        glCheck(glDeleteShader(fsLoc));          // fs in vram, freeing ram
+        glCheck(glLinkProgram(program));         // linking program
+        glCheckProgramLinkage(program);          // checking linkage status
+        glCheck(glUseProgram(program));          // sending program to vram
+        glCheck(glDeleteProgram(program));       // program in vram, freeing ram
 
         // uniforms
         auto mLoc{glGetUniformLocation(program, "M")};
@@ -585,10 +588,9 @@ void Scene::render(const Window &window, const std::function<void()> &f) {
   logMsg("[INFO] Rendering loop ended\n");
   logMsg("[INFO] Freeing GPU memory\n");
 
-  glCheck(glDeleteBuffers(3 * GLsizei(objAmt), buffers));
+  glCheck(glDeleteBuffers(3 * GLsizei(objAmt), buffers.get()));
   logMsg("[INFO] Done\n");
   logMsg("[INFO] Freeing CPU memory\n");
-  delete[] buffers;
   logMsg("[INFO] Done\n");
   logMsg("[INFO] Terminating...\n");
 }

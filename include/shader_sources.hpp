@@ -3,7 +3,7 @@
 
 #include <string>
 
-constexpr auto triangleMeshVertexShader = R"(
+static constexpr auto triangleMeshVertexShader = R"(
 #version 460
 
 layout (location = 0) in vec3 p;
@@ -28,8 +28,7 @@ void main(void) {
 
 )";
 
-inline auto triangleMeshFragShader(size_t lightCount) {
-  return std::string{R"(
+static constexpr auto triangleMeshFragShader = R"(
 #version 460
 
 #define MAX_LIGHTS 100
@@ -42,9 +41,7 @@ uniform struct Material {
 uniform struct Light {
   vec3 color;
   mat4 transform;
-} lights[)"} +
-         std::to_string(lightCount ? lightCount : 1) +
-         R"(];
+} lights[64];
 
 uniform uint lightCount;
 uniform mat4 V;
@@ -118,6 +115,5 @@ void main(void) {
 }
 
 )";
-}
 
 #endif // SHADER_SOURCES_HPP
