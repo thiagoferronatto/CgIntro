@@ -157,7 +157,6 @@ void TriangleMesh::translate(vec3 xyz) {
   // no need to rebound when simply translating
   _boundingBox.a += xyz;
   _boundingBox.b += xyz;
-  // bound();
 }
 
 void TriangleMesh::rotate(vec3 euler) {
@@ -183,16 +182,25 @@ void TriangleMesh::bound() {
 
 void TriangleMesh::initializeRigidBody(float mass) {
   this->RigidBody::initializeRigidBody(mass);
+  _centerOfMass = {};
+  if (_inverseMass == 0.0f) {
+    _invInertiaTensor = {};
+    for (auto &local_v : _vertices)
+      _centerOfMass += vec3{_transform * vec4{local_v, 1}};
+    _centerOfMass /= float(_vertices.size());
+    return;
+  }
   float vertexMass = 1.0f / (float(_vertices.size()) * _inverseMass);
-  vec3 centerOfMass{};
+  vec3 inertiaTensor{};
   for (auto &local_v : _vertices) {
     vec3 v{_transform * vec4{local_v, 1}};
-    _inertiaTensor.x += vertexMass * (v.y * v.y + v.z * v.z);
-    _inertiaTensor.y += vertexMass * (v.x * v.x + v.z * v.z);
-    _inertiaTensor.z += vertexMass * (v.x * v.x + v.y * v.y);
-    centerOfMass += v;
+    inertiaTensor.x += vertexMass * (v.y * v.y + v.z * v.z);
+    inertiaTensor.y += vertexMass * (v.x * v.x + v.z * v.z);
+    inertiaTensor.z += vertexMass * (v.x * v.x + v.y * v.y);
+    _centerOfMass += v;
   }
-  centerOfMass /= float(_vertices.size());
+  _invInertiaTensor = 1.0f / inertiaTensor;
+  _centerOfMass /= float(_vertices.size());
 }
 
 std::shared_ptr<TriangleMesh> TriangleMesh::cube() {

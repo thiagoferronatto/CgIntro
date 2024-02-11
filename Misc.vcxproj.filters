@@ -78,6 +78,12 @@
     <ClInclude Include="include\rigid_body.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\dbvh.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="dependencies\DynamicTree.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp">

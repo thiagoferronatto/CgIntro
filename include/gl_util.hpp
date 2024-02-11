@@ -68,6 +68,7 @@
       glCheck(                                                                 \
           glGetProgramInfoLog(program, maxLength, &maxLength, &infoLog[0]));   \
       fprintf_s(stderr, "%s\n", infoLog);                                      \
+      delete[] infoLog;                                                        \
       glCheck(glDeleteProgram(program));                                       \
       std::terminate();                                                        \
     }                                                                          \

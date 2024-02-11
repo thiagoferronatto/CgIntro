@@ -44,6 +44,7 @@
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
+    <EnableASAN>false</EnableASAN>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -109,6 +110,7 @@
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>include;dependencies;dependencies/glad/include;dependencies/glm;dependencies/imgui;</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <FloatingPointModel>Strict</FloatingPointModel>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -126,7 +128,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>include;dependencies;dependencies/glad/include;dependencies/glm</AdditionalIncludeDirectories>
-      <FloatingPointModel>Fast</FloatingPointModel>
+      <FloatingPointModel>Strict</FloatingPointModel>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
@@ -145,9 +147,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="dependencies\DynamicTree.h" />
     <ClInclude Include="include\aabb.hpp" />
     <ClInclude Include="include\actor.hpp" />
     <ClInclude Include="include\boundable.hpp" />
+    <ClInclude Include="include\dbvh.hpp" />
     <ClInclude Include="include\gl_util.hpp" />
     <ClInclude Include="include\light.hpp" />
     <ClInclude Include="include\log.hpp" />

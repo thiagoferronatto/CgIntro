@@ -28,6 +28,8 @@ skip:
 
 const std::string &Object::name() const { return _name; }
 
+std::string &Object::name() { return _name; }
+
 const std::vector<std::shared_ptr<Object>> &Object::children() const {
   return _children;
 }

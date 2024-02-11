@@ -1,9 +1,12 @@
 #include "custom_assert.hpp"
+#include "dbvh.hpp"
 #include "glm/ext.hpp"
 #include "glm/glm.hpp"
 #include "scene.hpp"
 #include "triangle_intersection.hpp"
 #include "window.hpp"
+
+#include "DynamicTree.h"
 
 #include <algorithm>
 #include <chrono>
@@ -15,6 +18,8 @@ int main() {
 
   Scene scene;
 
+  constexpr auto infinity = std::numeric_limits<float>::infinity();
+
   auto mazeBall = TriangleMesh::fromObj("assets/icosphere.obj");
   mazeBall->material.Kd = {1, 0, 0};
   mazeBall->scale({0.5, 0.5, 0.5});
@@ -25,38 +30,33 @@ int main() {
   auto tiltedPlane1 = TriangleMesh::plane();
   tiltedPlane1->rotate({0, 0, glm::radians(30.0f)});
   tiltedPlane1->translate({-1, 6, 0});
-  tiltedPlane1->initializeRigidBody(1); // temporary mass
-  tiltedPlane1->_inverseMass = 0;       // setting infinite mass
+  tiltedPlane1->initializeRigidBody(infinity);
   scene.addActor(tiltedPlane1);
 
   auto tiltedPlane2 = TriangleMesh::plane();
   tiltedPlane2->rotate({0, 0, glm::radians(-30.0f)});
   tiltedPlane2->translate({1, 4, 0});
-  tiltedPlane2->initializeRigidBody(1); // temporary mass
-  tiltedPlane2->_inverseMass = 0;       // setting infinite mass
+  tiltedPlane2->initializeRigidBody(infinity);
   scene.addActor(tiltedPlane2);
 
   auto tiltedPlane3 = TriangleMesh::plane();
   tiltedPlane3->rotate({0, 0, glm::radians(30.0f)});
   tiltedPlane3->translate({-1, 2, 0});
-  tiltedPlane3->initializeRigidBody(1); // temporary mass
-  tiltedPlane3->_inverseMass = 0;       // setting infinite mass
+  tiltedPlane3->initializeRigidBody(infinity);
   scene.addActor(tiltedPlane3);
 
   auto rightWallPlane = TriangleMesh::plane();
   rightWallPlane->scale({7, 1, 1});
   rightWallPlane->rotate({0, 0, glm::radians(-90.0f)});
   rightWallPlane->translate({1.9, 4, 0});
-  rightWallPlane->initializeRigidBody(1); // temporary mass
-  rightWallPlane->_inverseMass = 0;       // setting infinite mass
+  rightWallPlane->initializeRigidBody(infinity);
   scene.addActor(rightWallPlane);
 
   auto leftWallPlane = TriangleMesh::plane();
   leftWallPlane->scale({7, 1, 1});
   leftWallPlane->rotate({0, 0, glm::radians(90.0f)});
   leftWallPlane->translate({-1.9, 4, 0});
-  leftWallPlane->initializeRigidBody(1); // temporary mass
-  leftWallPlane->_inverseMass = 0;       // setting infinite mass
+  leftWallPlane->initializeRigidBody(infinity);
   scene.addActor(leftWallPlane);
 
   auto bouncingBall1 = TriangleMesh::fromObj("assets/icosphere.obj");
@@ -78,8 +78,7 @@ int main() {
   auto ground = TriangleMesh::fromObj("assets/sandbox.obj");
   ground->scale({15, 5, 15});
   ground->translate({0, -3.5, 0});
-  ground->initializeRigidBody(1); // temporary mass
-  ground->_inverseMass = 0;       // setting infinite mass
+  ground->initializeRigidBody(infinity);
   scene.addActor(ground);
 
   auto light{std::make_shared<Light>(vec3{1})};
@@ -109,10 +108,50 @@ int main() {
 
   scene.ambient = {};
 
-  constexpr vec3 gravity{0, -0.000025, 0};
+  constexpr vec3 gravity{0, -0.00001, 0};
 
+  Scene bvhScene;
+
+#if true // draw bvh instead of scene
+#if true // use Ds' implementation
+  {
+    cg::DynamicTree tree;
+    for (auto &actor : scene.actors())
+      tree.add(actor->bounds());
+
+    for (const auto &aabb : tree) {
+      auto cube{TriangleMesh::fromObj("assets/wireframe_cube.obj")};
+      auto a{aabb.a}, b{aabb.b};
+      auto p{0.5f * (a + b)};
+      cube->scale(0.5f * (b - a));
+      cube->translate(p);
+      bvhScene.addActor(cube);
+    }
+  }
+#else // use my own implementation
+  DBVH dbvh{scene};
+  dbvh.visit([&](DBVH::NodePtr node) {
+    auto cube{TriangleMesh::fromObj("assets/wireframe_cube.obj")};
+    cube->name() = node->debugName;
+    auto a{node->aabb.a}, b{node->aabb.b};
+    auto p{0.5f * (a + b)};
+    cube->scale(0.5f * (b - a));
+    cube->translate(p);
+    bvhScene.addActor(cube);
+  });
+#endif
+
+  auto cam2{std::make_shared<Camera>("cam_2", glm::radians(74.0f),
+                                     float(w) / float(h), 0.1f, 1000.0f)};
+  cam2->translate({0, 15, 20});
+  cam2->rotate({glm::radians(45.0f), 0, 0});
+  cam2->translate(vec3{cam2->transform() * vec4{0, 0, 50, 0}});
+  cam2->setFov(20);
+  bvhScene.addCamera(cam2);
+
+  bvhScene.render(window);
+#else // draw scene and simulate physics
   float deltaTime = 0;
-
   scene.render(window, [&] {
     using namespace std::chrono;
 
@@ -188,7 +227,7 @@ int main() {
               }
               auto p = 0.5f * (a + b); // point of collision
 
-              constexpr float restitution{.9825f};
+              constexpr float restitution{.935f};
 
               // TODO: currently using the normal of the second mesh, but
               //       should figure out which one (n1 or n2) to use based on
@@ -202,16 +241,13 @@ int main() {
               mesh1->_velocity += mesh1->_inverseMass * j * n2;
               mesh2->_velocity -= mesh2->_inverseMass * j * n2;
 
-              auto invI1 = 1.0f / mesh1->_inertiaTensor;
-              auto invI2 = 1.0f / mesh2->_inertiaTensor;
-
               // TODO: fix angular motion
 
               // mesh1->_angularVelocity +=
-              //     0.1f * mesh1->_inverseMass *
+              //     mesh1->_inverseMass * // mesh1->_invInertiaTensor *
               //     cross(p - mesh1->_centerOfMass, j * n2);
               // mesh2->_angularVelocity -=
-              //     0.1f * mesh2->_inverseMass *
+              //     mesh2->_inverseMass * // mesh2->_invInertiaTensor *
               //     cross(p - mesh2->_centerOfMass, j * n2);
 
               // temporary fix for continued overlap
@@ -253,6 +289,7 @@ int main() {
     auto now = steady_clock::now();
     deltaTime = duration_cast<microseconds>(now - before).count() / 1e6f;
   });
+#endif
 
   return 0;
 }

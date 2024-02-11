@@ -17,6 +17,7 @@ public:
   virtual ~Object() = default;
 
   const std::string &name() const;
+  std::string &name();
 
   template <typename T> void addChild(std::shared_ptr<T> child);
 

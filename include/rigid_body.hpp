@@ -15,7 +15,7 @@ public:
 
 public:
   // https://en.wikipedia.org/wiki/Moment_of_inertia#Inertia_tensor
-  vec3 _inertiaTensor{};
+  vec3 _invInertiaTensor{};
   vec3 _velocity{}, _angularVelocity{}, _centerOfMass;
   float _inverseMass;
 };
