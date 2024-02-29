@@ -66,8 +66,8 @@ class DynamicTreeIterator;
 //
 // DynamicTreeNode: dynamic tree node class
 // ===============
-class DynamicTreeNode {
-private:
+struct DynamicTreeNode {
+  // private:
   static constexpr int null = -1;
 
   AABB _bounds;
@@ -202,6 +202,10 @@ public:
   }
 
   template <typename T> void query(T *handler, const bounds_type &bounds) const;
+
+  int root() const { return _root; }
+
+  auto getNode(int index) const { return _nodes + index; }
 
 private:
   using Node = DynamicTreeNode;
