@@ -5,9 +5,9 @@ namespace devillers {
 /* Epsilon coplanarity checks */
 
 #define USE_EPSILON_TEST                                                       \
-  false /* set to true to use coplanarity robustness checks */
+  true /* set to true to use coplanarity robustness checks */
 #define EPSILON                                                                \
-  1e-10 /* you may also need to adjust this value according to your data */
+  1e-9 /* you may also need to adjust this value according to your data */
 
 /* if USE_EPSILON_TEST is true then we do a check:
          if |dv|<EPSILON then dv=0.0;

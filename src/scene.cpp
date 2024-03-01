@@ -123,9 +123,8 @@ static void transferActors(std::shared_ptr<GLuint[]> &buffers,
 
       // transferring triangle vertex indices to VRAM
       glCheck(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffers[i + 3 * objAmt]));
-      glCheck(glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-                           t.size() * sizeof(TriangleMesh::Triangle), t.data(),
-                           GL_STATIC_DRAW));
+      glCheck(glBufferData(GL_ELEMENT_ARRAY_BUFFER, t.size() * sizeof(Triangle),
+                           t.data(), GL_STATIC_DRAW));
 
       if (auto textureFile{mesh->material.map_Kd}; !textureFile.empty()) {
         PPM bah{textureFile};
@@ -176,7 +175,8 @@ static void makeMainMenu(Scene *scene, const Window &window,
               auto fileName{filePath.filename()};
               if (fileName.extension() == ".obj" &&
                   ImGui::MenuItem(fileName.string().c_str())) {
-                scene->addActor(TriangleMesh::fromObj(filePath.string()));
+                scene->addActor(std::make_shared<TriangleMesh>(
+                    "TEMPORARY", TriangleMeshData::fromObj(filePath.string())));
                 transferActors(buffers, textures, prevObjAmt, scene->actors());
               }
             }
@@ -190,11 +190,13 @@ static void makeMainMenu(Scene *scene, const Window &window,
         if (ImGui::BeginMenu("Scene")) {
           if (ImGui::BeginMenu("Add premade actor")) {
             if (ImGui::MenuItem("Cube")) {
-              scene->addActor(TriangleMesh::cube());
+              scene->addActor(std::make_shared<TriangleMesh>(
+                  "TEMPORARY", TriangleMeshData::cube()));
               transferActors(buffers, textures, prevObjAmt, scene->actors());
             }
             if (ImGui::MenuItem("Plane")) {
-              scene->addActor(TriangleMesh::plane());
+              scene->addActor(std::make_shared<TriangleMesh>(
+                  "TEMPORARY", TriangleMeshData::plane()));
               transferActors(buffers, textures, prevObjAmt, scene->actors());
             }
             ImGui::EndMenu();
@@ -229,13 +231,24 @@ void Scene::render(const Window &window, const std::function<void()> &f) {
   bool uWasPressedInPrevFrame = false;
 
   logMsg("[INFO] Starting rendering loop\n");
+  float dt{};
   window.show();
   while (!window.shouldClose()) {
+    auto start = std::chrono::steady_clock::now();
+
     glClearColor(ambient.x, ambient.y, ambient.z, 1);
     // GUI
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
+
+    // show FPS regardless of UI state
+    ImGui::SetNextWindowPos({21, 21});
+    ImGui::SetNextWindowSize({100, 75});
+    if (ImGui::Begin("Performance")) {
+      ImGui::Text("%.2f fps", 1.0f / dt);
+      ImGui::End();
+    }
 
     if (drawUserInterface) {
       makeMainMenu(this, window, buffers, textures, objAmt);
@@ -413,31 +426,31 @@ void Scene::render(const Window &window, const std::function<void()> &f) {
                     GL_STENCIL_BUFFER_BIT));
 
     // DEBUG CONTROLS
-    constexpr float cspd{0.5};
+    constexpr float lspd{0.5}, aspd{2.0};
     if (window.keyIsPressed(GLFW_KEY_ESCAPE))
       _cameras[0]->setPosition({});
     if (window.keyIsPressed(GLFW_KEY_W))
-      _cameras[0]->translate(_cameras[0]->transform() * vec4{0, 0, -cspd, 0});
+      _cameras[0]->translate(_cameras[0]->transform() * vec4{0, 0, -lspd, 0});
     if (window.keyIsPressed(GLFW_KEY_A))
-      _cameras[0]->translate(_cameras[0]->transform() * vec4{-cspd, 0, 0, 0});
+      _cameras[0]->translate(_cameras[0]->transform() * vec4{-lspd, 0, 0, 0});
     if (window.keyIsPressed(GLFW_KEY_S))
-      _cameras[0]->translate(_cameras[0]->transform() * vec4{0, 0, cspd, 0});
+      _cameras[0]->translate(_cameras[0]->transform() * vec4{0, 0, lspd, 0});
     if (window.keyIsPressed(GLFW_KEY_D))
-      _cameras[0]->translate(_cameras[0]->transform() * vec4{cspd, 0, 0, 0});
+      _cameras[0]->translate(_cameras[0]->transform() * vec4{lspd, 0, 0, 0});
     if (window.keyIsPressed(GLFW_KEY_SPACE))
-      _cameras[0]->translate({0, cspd, 0});
+      _cameras[0]->translate({0, lspd, 0});
     if (window.keyIsPressed(GLFW_KEY_LEFT_CONTROL))
-      _cameras[0]->translate({0, -cspd, 0});
+      _cameras[0]->translate({0, -lspd, 0});
     if (window.keyIsPressed(GLFW_KEY_Q))
-      _cameras[0]->rotate({0, glm::radians(-1.0f), 0});
+      _cameras[0]->rotate({0, glm::radians(-aspd), 0});
     if (window.keyIsPressed(GLFW_KEY_E))
-      _cameras[0]->rotate({0, glm::radians(1.0f), 0});
+      _cameras[0]->rotate({0, glm::radians(aspd), 0});
     if (window.keyIsPressed(GLFW_KEY_R))
       _cameras[0]->rotate(_cameras[0]->transform() *
-                          vec4{glm::radians(-1.0f), 0, 0, 0});
+                          vec4{glm::radians(-aspd), 0, 0, 0});
     if (window.keyIsPressed(GLFW_KEY_F))
       _cameras[0]->rotate(_cameras[0]->transform() *
-                          vec4{glm::radians(1.0f), 0, 0, 0});
+                          vec4{glm::radians(aspd), 0, 0, 0});
     if (window.keyIsPressed(GLFW_KEY_Z))
       _cameras[0]->setFov(fmaxf(_cameras[0]->fov() - 1.0f, 0.1));
     if (window.keyIsPressed(GLFW_KEY_C))
@@ -584,6 +597,9 @@ void Scene::render(const Window &window, const std::function<void()> &f) {
 
     window.swapBuffers();
     window.pollEvents();
+
+    auto end = steady_clock::now();
+    dt = 1e-6f * duration_cast<microseconds>(end - start).count();
   }
   logMsg("[INFO] Rendering loop ended\n");
   logMsg("[INFO] Freeing GPU memory\n");

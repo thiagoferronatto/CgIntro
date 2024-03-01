@@ -12,6 +12,10 @@ public:
   Actor(const Actor &other);
   Actor(Actor &&other) noexcept;
 
+  void translate(vec3 xyz) override;
+  void rotate(vec3 euler) override;
+  void scale(vec3 xyz) override;
+
   Actor &operator=(const Actor &other);
   Actor &operator=(Actor &&other) noexcept;
 

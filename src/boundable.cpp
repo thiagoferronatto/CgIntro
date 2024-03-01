@@ -13,4 +13,4 @@ bool Boundable::boundsIntersect(Boundable &other) {
 
 bool Boundable::isBound() const { return _isBound; }
 
-AABB Boundable::bounds() const { return _boundingBox; };
+Aabb Boundable::bounds() const { return _boundingBox; };

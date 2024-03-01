@@ -32,16 +32,16 @@ namespace cg { // begin namespace cg
 //
 // Auxiliary functions
 //
-inline auto boundsArea(const AABB &bounds) {
+inline auto boundsArea(const Aabb &bounds) {
   auto ab{bounds.b - bounds.a};
   return 2.0f * (ab.x * ab.y + ab.x * ab.z + ab.y * ab.z);
 }
 
-inline AABB operator+(const AABB &a, const AABB &b) {
+inline Aabb operator+(const Aabb &a, const Aabb &b) {
   return {glm::min(a.a, b.a), glm::max(a.b, b.b)};
 }
 
-inline auto testOverlap(const AABB &a, const AABB &b) {
+inline auto testOverlap(const Aabb &a, const Aabb &b) {
   const auto &a_min = a.a;
   const auto &a_max = a.b;
   const auto &b_min = b.a;
@@ -70,16 +70,16 @@ struct DynamicTreeNode {
   // private:
   static constexpr int null = -1;
 
-  AABB _bounds;
-  void *_userData;
+  Aabb bounds;
+  void *userData;
   union {
     int _parent;
     int _next;
   };
-  int _children[2];
+  int children[2];
   int _height;
 
-  auto isLeaf() const { return _children[0] == null; }
+  auto isLeaf() const { return children[0] == null; }
 
   friend DynamicTree;
   friend DynamicTreeIterator;
@@ -124,15 +124,15 @@ public:
 
   const auto &bounds() const {
     assert(_index != Node::null);
-    return _nodes[_index]._bounds;
+    return _nodes[_index].bounds;
   }
 
   auto userData() const {
     assert(_index != Node::null);
-    return _nodes[_index]._userData;
+    return _nodes[_index].userData;
   }
 
-  auto operator*() const { return _nodes[_index]._bounds; }
+  auto operator*() const { return _nodes[_index].bounds; }
 
 private:
   const Node *_nodes;
@@ -143,7 +143,7 @@ private:
 DynamicTreeIterator &DynamicTreeIterator::operator++() {
   if (_index != Node::null) {
     const auto node = _nodes + _index;
-    auto nextIndex = node->_children[0];
+    auto nextIndex = node->children[0];
 
     if (nextIndex == Node::null) {
       auto temp = _index;
@@ -153,7 +153,7 @@ DynamicTreeIterator &DynamicTreeIterator::operator++() {
         for (;;) {
           const auto parent = _nodes + parentIndex;
 
-          nextIndex = parent->_children[1];
+          nextIndex = parent->children[1];
           if (nextIndex != temp)
             break;
           nextIndex = Node::null;
@@ -174,7 +174,7 @@ DynamicTreeIterator &DynamicTreeIterator::operator++() {
 // ===========
 class DynamicTree {
 public:
-  using bounds_type = AABB;
+  using bounds_type = Aabb;
   using iterator = DynamicTreeIterator;
 
   ~DynamicTree() { delete[] _nodes; }
@@ -198,7 +198,7 @@ public:
   auto end() const { return iterator{_nodes, Node::null}; }
 
   auto bounds() const {
-    return _root == Node::null ? bounds_type{} : _nodes[_root]._bounds;
+    return _root == Node::null ? bounds_type{} : _nodes[_root].bounds;
   }
 
   template <typename T> void query(T *handler, const bounds_type &bounds) const;
@@ -267,7 +267,7 @@ int DynamicTree::allocateNode() {
   auto node = _nodes + index;
 
   _freeList = node->_next;
-  node->_parent = node->_children[0] = node->_children[1] = Node::null;
+  node->_parent = node->children[0] = node->children[1] = Node::null;
   node->_height = 0;
   ++_nodeCount;
   return index;
@@ -283,8 +283,8 @@ void DynamicTree::freeNode(int index) {
 int DynamicTree::add(const bounds_type &bounds, void *userData) {
   auto leaf = allocateNode();
 
-  _nodes[leaf]._bounds = bounds;
-  _nodes[leaf]._userData = userData;
+  _nodes[leaf].bounds = bounds;
+  _nodes[leaf].userData = userData;
   addLeafNode(leaf);
   return leaf;
 }
@@ -304,14 +304,14 @@ void DynamicTree::addLeafNode(int leaf) {
   }
 
   // Find the best sibling for this node
-  const auto &leafBounds = _nodes[leaf]._bounds;
+  const auto &leafBounds = _nodes[leaf].bounds;
   auto index = _root;
 
   for (Node *node; !(node = _nodes + index)->isLeaf();) {
-    auto c1 = node->_children[0];
-    auto c2 = node->_children[1];
-    auto area = boundsArea(node->_bounds);
-    auto combinedArea = boundsArea(node->_bounds + leafBounds);
+    auto c1 = node->children[0];
+    auto c2 = node->children[1];
+    auto area = boundsArea(node->bounds);
+    auto combinedArea = boundsArea(node->bounds + leafBounds);
     // Cost of creating a new parent for this node and the new leaf
     auto cost = float(2) * combinedArea;
     // Minimum cost of pushing the leaf further down the tree
@@ -320,19 +320,19 @@ void DynamicTree::addLeafNode(int leaf) {
 
     // Cost of descending into child 1
     if ((node = _nodes + c1)->isLeaf())
-      cost1 = boundsArea(leafBounds + node->_bounds) + inheritanceCost;
+      cost1 = boundsArea(leafBounds + node->bounds) + inheritanceCost;
     else {
-      auto oldArea = boundsArea(node->_bounds);
-      auto newArea = boundsArea(leafBounds + node->_bounds);
+      auto oldArea = boundsArea(node->bounds);
+      auto newArea = boundsArea(leafBounds + node->bounds);
 
       cost1 = (newArea - oldArea) + inheritanceCost;
     }
     // Cost of descending into child 2
     if ((node = _nodes + c2)->isLeaf())
-      cost2 = boundsArea(leafBounds + node->_bounds) + inheritanceCost;
+      cost2 = boundsArea(leafBounds + node->bounds) + inheritanceCost;
     else {
-      auto oldArea = boundsArea(node->_bounds);
-      auto newArea = boundsArea(leafBounds + node->_bounds);
+      auto oldArea = boundsArea(node->bounds);
+      auto newArea = boundsArea(leafBounds + node->bounds);
 
       cost2 = (newArea - oldArea) + inheritanceCost;
     }
@@ -348,8 +348,8 @@ void DynamicTree::addLeafNode(int leaf) {
   auto newParentNode = _nodes + newParent;
 
   newParentNode->_parent = oldParent;
-  newParentNode->_userData = nullptr;
-  newParentNode->_bounds = leafBounds + _nodes[index]._bounds;
+  newParentNode->userData = nullptr;
+  newParentNode->bounds = leafBounds + _nodes[index].bounds;
   newParentNode->_height = _nodes[index]._height + 1;
   if (oldParent == Node::null)
     // The sibling was the root
@@ -358,24 +358,24 @@ void DynamicTree::addLeafNode(int leaf) {
     auto oldParentNode = _nodes + oldParent;
 
     // The sibling was not the root
-    if (oldParentNode->_children[0] == index)
-      oldParentNode->_children[0] = newParent;
+    if (oldParentNode->children[0] == index)
+      oldParentNode->children[0] = newParent;
     else
-      oldParentNode->_children[1] = newParent;
+      oldParentNode->children[1] = newParent;
   }
-  newParentNode->_children[0] = index;
-  newParentNode->_children[1] = leaf;
+  newParentNode->children[0] = index;
+  newParentNode->children[1] = leaf;
   _nodes[index]._parent = _nodes[leaf]._parent = newParent;
   // Walk back up the tree fixing heights and bounds
   index = _nodes[leaf]._parent;
   while (index != Node::null) {
     auto node = _nodes + balance(index);
-    auto c1 = node->_children[0];
-    auto c2 = node->_children[1];
+    auto c1 = node->children[0];
+    auto c2 = node->children[1];
 
     assert(c1 != Node::null);
     assert(c2 != Node::null);
-    node->_bounds = _nodes[c1]._bounds + _nodes[c2]._bounds;
+    node->bounds = _nodes[c1].bounds + _nodes[c2].bounds;
     node->_height = 1 + std::max(_nodes[c1]._height, _nodes[c2]._height);
     index = node->_parent;
   }
@@ -391,16 +391,16 @@ void DynamicTree::removeLeafNode(int leaf) {
   auto grandParent = _nodes[parent]._parent;
   int sibling;
 
-  if (_nodes[parent]._children[0] == leaf)
-    sibling = _nodes[parent]._children[1];
+  if (_nodes[parent].children[0] == leaf)
+    sibling = _nodes[parent].children[1];
   else
-    sibling = _nodes[parent]._children[0];
+    sibling = _nodes[parent].children[0];
   if (grandParent != Node::null) {
     // Destroy parent and connect sibling to grand parent
-    if (_nodes[grandParent]._children[0] == parent)
-      _nodes[grandParent]._children[0] = sibling;
+    if (_nodes[grandParent].children[0] == parent)
+      _nodes[grandParent].children[0] = sibling;
     else
-      _nodes[grandParent]._children[1] = sibling;
+      _nodes[grandParent].children[1] = sibling;
     _nodes[sibling]._parent = grandParent;
     freeNode(parent);
 
@@ -410,10 +410,10 @@ void DynamicTree::removeLeafNode(int leaf) {
     while (index != Node::null) {
       auto node = _nodes + balance(index);
 
-      auto c1 = node->_children[0];
-      auto c2 = node->_children[1];
+      auto c1 = node->children[0];
+      auto c2 = node->children[1];
 
-      node->_bounds = _nodes[c1]._bounds + _nodes[c2]._bounds;
+      node->bounds = _nodes[c1].bounds + _nodes[c2].bounds;
       node->_height = 1 + std::max(_nodes[c1]._height, _nodes[c2]._height);
       index = node->_parent;
     }
@@ -434,8 +434,8 @@ int DynamicTree::balance(int iA) {
   if (a->isLeaf() || a->_height < 2)
     return iA;
 
-  auto iB = a->_children[0];
-  auto iC = a->_children[1];
+  auto iB = a->children[0];
+  auto iC = a->children[1];
 
   assert(0 <= iB && iB < _nodeCapacity);
   assert(0 <= iC && iC < _nodeCapacity);
@@ -446,8 +446,8 @@ int DynamicTree::balance(int iA) {
 
   // Rotate C up
   if (balance > 1) {
-    auto iF = c->_children[0];
-    auto iG = c->_children[1];
+    auto iF = c->children[0];
+    auto iG = c->children[1];
 
     assert(0 <= iF && iF < _nodeCapacity);
     assert(0 <= iG && iG < _nodeCapacity);
@@ -456,34 +456,34 @@ int DynamicTree::balance(int iA) {
     auto g = _nodes + iG;
 
     // Swap A and C
-    c->_children[0] = iA;
+    c->children[0] = iA;
     c->_parent = a->_parent;
     a->_parent = iC;
     // A's old parent should point to C
     if (c->_parent != Node::null) {
-      if (_nodes[c->_parent]._children[0] == iA)
-        _nodes[c->_parent]._children[0] = iC;
+      if (_nodes[c->_parent].children[0] == iA)
+        _nodes[c->_parent].children[0] = iC;
       else {
-        assert(_nodes[c->_parent]._children[1] == iA);
-        _nodes[c->_parent]._children[1] = iC;
+        assert(_nodes[c->_parent].children[1] == iA);
+        _nodes[c->_parent].children[1] = iC;
       }
     } else
       _root = iC;
     // Rotate
     if (f->_height > g->_height) {
-      c->_children[1] = iF;
-      a->_children[1] = iG;
+      c->children[1] = iF;
+      a->children[1] = iG;
       g->_parent = iA;
-      a->_bounds = b->_bounds + g->_bounds;
-      c->_bounds = a->_bounds + f->_bounds;
+      a->bounds = b->bounds + g->bounds;
+      c->bounds = a->bounds + f->bounds;
       a->_height = 1 + std::max(b->_height, g->_height);
       c->_height = 1 + std::max(a->_height, f->_height);
     } else {
-      c->_children[1] = iG;
-      a->_children[1] = iF;
+      c->children[1] = iG;
+      a->children[1] = iF;
       f->_parent = iA;
-      a->_bounds = b->_bounds + f->_bounds;
-      c->_bounds = a->_bounds + g->_bounds;
+      a->bounds = b->bounds + f->bounds;
+      c->bounds = a->bounds + g->bounds;
       a->_height = 1 + std::max(b->_height, f->_height);
       c->_height = 1 + std::max(a->_height, g->_height);
     }
@@ -491,8 +491,8 @@ int DynamicTree::balance(int iA) {
   }
   // Rotate B up
   if (balance < -1) {
-    auto iD = b->_children[0];
-    auto iE = b->_children[1];
+    auto iD = b->children[0];
+    auto iE = b->children[1];
 
     assert(0 <= iD && iD < _nodeCapacity);
     assert(0 <= iE && iE < _nodeCapacity);
@@ -501,34 +501,34 @@ int DynamicTree::balance(int iA) {
     auto e = _nodes + iE;
 
     // Swap A and B
-    b->_children[0] = iA;
+    b->children[0] = iA;
     b->_parent = a->_parent;
     a->_parent = iB;
     // A's old parent should point to B
     if (b->_parent != Node::null) {
-      if (_nodes[b->_parent]._children[0] == iA)
-        _nodes[b->_parent]._children[0] = iB;
+      if (_nodes[b->_parent].children[0] == iA)
+        _nodes[b->_parent].children[0] = iB;
       else {
-        assert(_nodes[b->_parent]._children[1] == iA);
-        _nodes[b->_parent]._children[1] = iB;
+        assert(_nodes[b->_parent].children[1] == iA);
+        _nodes[b->_parent].children[1] = iB;
       }
     } else
       _root = iB;
     // Rotate
     if (d->_height > e->_height) {
-      b->_children[1] = iD;
-      a->_children[0] = iE;
+      b->children[1] = iD;
+      a->children[0] = iE;
       e->_parent = iA;
-      a->_bounds = c->_bounds + e->_bounds;
-      b->_bounds = a->_bounds + d->_bounds;
+      a->bounds = c->bounds + e->bounds;
+      b->bounds = a->bounds + d->bounds;
       a->_height = 1 + std::max(c->_height, e->_height);
       b->_height = 1 + std::max(a->_height, d->_height);
     } else {
-      b->_children[1] = iE;
-      a->_children[0] = iD;
+      b->children[1] = iE;
+      a->children[0] = iD;
       d->_parent = iA;
-      a->_bounds = c->_bounds + d->_bounds;
-      b->_bounds = a->_bounds + e->_bounds;
+      a->bounds = c->bounds + d->bounds;
+      b->bounds = a->bounds + e->bounds;
       a->_height = 1 + std::max(c->_height, d->_height);
       b->_height = 1 + std::max(a->_height, e->_height);
     }
@@ -547,11 +547,11 @@ void DynamicTree::query(T *handler, const bounds_type &bounds) const {
     auto node = _nodes + nodeIndex;
 
     stack.pop();
-    if (!testOverlap(node->_bounds, bounds))
+    if (!testOverlap(node->bounds, bounds))
       continue;
     if (!node->isLeaf()) {
-      stack.push(node->_children[0]);
-      stack.push(node->_children[1]);
+      stack.push(node->children[0]);
+      stack.push(node->children[1]);
     } else if (!handler->queryCallback(nodeIndex))
       return;
   }

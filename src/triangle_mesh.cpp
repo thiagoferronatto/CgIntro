@@ -7,12 +7,19 @@
 #include "custom_assert.hpp"
 #include "log.hpp"
 
-std::shared_ptr<TriangleMesh> TriangleMesh::fromObj(const std::string &file) {
+void TriangleMeshData::addVertex(vec3 v) { vertices.push_back(v); }
+
+void TriangleMeshData::addNormal(vec3 n) { normals.push_back(n); }
+
+void TriangleMeshData::addTriangle(Triangle t) { triangles.push_back(t); }
+
+void TriangleMeshData::addUV(vec2 uv) { uvs.push_back(uv); }
+
+std::shared_ptr<TriangleMeshData>
+TriangleMeshData::fromObj(const std::string &file) {
   using namespace std::chrono;
 
-  auto mesh{
-      std::make_shared<TriangleMesh>(file.substr(file.find_last_of('/') + 1) +
-                                     std::to_string(_customMeshes++))};
+  auto data{std::make_shared<TriangleMeshData>()};
 
   std::ifstream is{file};
   if (!is) {
@@ -50,13 +57,13 @@ std::shared_ptr<TriangleMesh> TriangleMesh::fromObj(const std::string &file) {
       iss >> v3;
       iss.ignore(2);
       iss >> n3;
-      mesh->addVertex(vertices[size_t(v1) - 1]);
-      mesh->addVertex(vertices[size_t(v2) - 1]);
-      mesh->addVertex(vertices[size_t(v3) - 1]);
-      mesh->addNormal(normals[size_t(n1) - 1]);
-      mesh->addNormal(normals[size_t(n2) - 1]);
-      mesh->addNormal(normals[size_t(n3) - 1]);
-      mesh->addTriangle({i, i + 1, i + 2});
+      data->addVertex(vertices[size_t(v1) - 1]);
+      data->addVertex(vertices[size_t(v2) - 1]);
+      data->addVertex(vertices[size_t(v3) - 1]);
+      data->addNormal(normals[size_t(n1) - 1]);
+      data->addNormal(normals[size_t(n2) - 1]);
+      data->addNormal(normals[size_t(n3) - 1]);
+      data->addTriangle({i, i + 1, i + 2});
       i += 3;
     }
   }
@@ -66,50 +73,121 @@ std::shared_ptr<TriangleMesh> TriangleMesh::fromObj(const std::string &file) {
          duration_cast<microseconds>(end - start).count() / 1e6f,
          (vertices.size() + normals.size()) * sizeof(vec3));
 
-  auto mtlFile{file.substr(0, file.size() - 4) + ".mtl"};
-  is = std::ifstream{mtlFile};
-
-  if (!is)
-    return mesh;
-
-  logMsg("[INFO] Reading MTL file \"%s\"...\n", mtlFile.c_str());
-  Material material;
-  while (std::getline(is, line)) {
-    std::istringstream iss{line};
-    std::string prop;
-    iss >> prop;
-    if (prop == "Ka")
-      iss >> material.Ka.x >> material.Ka.y >> material.Ka.z;
-    else if (prop == "Kd")
-      iss >> material.Kd.x >> material.Kd.y >> material.Kd.z;
-    else if (prop == "Ks")
-      iss >> material.Ks.x >> material.Ks.y >> material.Ks.z;
-    else if (prop == "Ns")
-      iss >> material.Ns;
-    else if (prop == "Ni")
-      iss >> material.Ni;
-    else if (prop == "d")
-      iss >> material.d;
-    else if (prop == "map_Kd")
-      iss >> material.map_Kd;
-  }
-  mesh->material = material;
-
-  logMsg("[INFO] Reading done");
-
-  return mesh;
+  return data;
 }
 
-TriangleMesh::TriangleMesh(std::string name) : Actor{std::move(name)} {}
+std::shared_ptr<TriangleMeshData> TriangleMeshData::cube() {
+  auto data{std::make_shared<TriangleMeshData>()};
+
+  // front face
+  data->addVertex({-0.5, -0.5, 0.5}); // 0
+  data->addNormal({0, 0, 1});         // 0
+  data->addVertex({0.5, -0.5, 0.5});  // 1
+  data->addNormal({0, 0, 1});         // 1
+  data->addVertex({0.5, 0.5, 0.5});   // 2
+  data->addNormal({0, 0, 1});         // 2
+  data->addVertex({-0.5, 0.5, 0.5});  // 3
+  data->addNormal({0, 0, 1});         // 3
+  data->addTriangle({0, 1, 2});
+  data->addTriangle({2, 3, 0});
+
+  // back face
+  data->addVertex({0.5, -0.5, -0.5});  // 4
+  data->addNormal({0, 0, -1});         // 4
+  data->addVertex({-0.5, -0.5, -0.5}); // 5
+  data->addNormal({0, 0, -1});         // 5
+  data->addVertex({-0.5, 0.5, -0.5});  // 6
+  data->addNormal({0, 0, -1});         // 6
+  data->addVertex({0.5, 0.5, -0.5});   // 7
+  data->addNormal({0, 0, -1});         // 7
+  data->addTriangle({4, 5, 6});
+  data->addTriangle({6, 7, 4});
+
+  // left face
+  data->addVertex({-0.5, -0.5, -0.5}); // 8
+  data->addNormal({-1, 0, 0});         // 8
+  data->addVertex({-0.5, -0.5, 0.5});  // 9
+  data->addNormal({-1, 0, 0});         // 9
+  data->addVertex({-0.5, 0.5, 0.5});   // 10
+  data->addNormal({-1, 0, 0});         // 10
+  data->addVertex({-0.5, 0.5, -0.5});  // 11
+  data->addNormal({-1, 0, 0});         // 11
+  data->addTriangle({8, 9, 10});
+  data->addTriangle({10, 11, 8});
+
+  // right face
+  data->addVertex({0.5, -0.5, 0.5});  // 12
+  data->addNormal({1, 0, 0});         // 12
+  data->addVertex({0.5, -0.5, -0.5}); // 13
+  data->addNormal({1, 0, 0});         // 13
+  data->addVertex({0.5, 0.5, -0.5});  // 14
+  data->addNormal({1, 0, 0});         // 14
+  data->addVertex({0.5, 0.5, 0.5});   // 15
+  data->addNormal({1, 0, 0});         // 15
+  data->addTriangle({12, 13, 14});
+  data->addTriangle({14, 15, 12});
+
+  // bottom face
+  data->addVertex({-0.5, -0.5, -0.5}); // 16
+  data->addNormal({0, -1, 0});         // 16
+  data->addVertex({0.5, -0.5, -0.5});  // 17
+  data->addNormal({0, -1, 0});         // 17
+  data->addVertex({0.5, -0.5, 0.5});   // 18
+  data->addNormal({0, -1, 0});         // 18
+  data->addVertex({-0.5, -0.5, 0.5});  // 19
+  data->addNormal({0, -1, 0});         // 19
+  data->addTriangle({16, 17, 18});
+  data->addTriangle({18, 19, 16});
+
+  // top face
+  data->addVertex({-0.5, 0.5, 0.5});  // 20
+  data->addNormal({0, 1, 0});         // 20
+  data->addVertex({0.5, 0.5, 0.5});   // 21
+  data->addNormal({0, 1, 0});         // 21
+  data->addVertex({0.5, 0.5, -0.5});  // 22
+  data->addNormal({0, 1, 0});         // 22
+  data->addVertex({-0.5, 0.5, -0.5}); // 23
+  data->addNormal({0, 1, 0});         // 23
+  data->addTriangle({20, 21, 22});
+  data->addTriangle({22, 23, 20});
+
+  return data;
+}
+
+std::shared_ptr<TriangleMeshData> TriangleMeshData::plane() {
+  auto data{std::make_shared<TriangleMeshData>()};
+
+  data->addVertex({-1, 0, 1});
+  data->addVertex({1, 0, 1});
+  data->addVertex({1, 0, -1});
+  data->addVertex({-1, 0, -1});
+
+  data->addNormal({0, 1, 0});
+  data->addNormal({0, 1, 0});
+  data->addNormal({0, 1, 0});
+  data->addNormal({0, 1, 0});
+
+  data->addUV({0, 0});
+  data->addUV({1, 0});
+  data->addUV({1, 1});
+  data->addUV({0, 1});
+
+  data->addTriangle({0, 1, 2});
+  data->addTriangle({2, 3, 0});
+
+  return data;
+}
+
+TriangleMesh::TriangleMesh(std::string name,
+                           std::shared_ptr<TriangleMeshData> data)
+    : Actor{std::move(name)}, _data{data} {}
 
 // TriangleMesh::TriangleMesh(const TriangleMesh &other)
 //     : TransformableObject{other}, _vertices{other._vertices},
 //       _normals{other._normals}, _triangles{other._triangles} {}
 
 TriangleMesh::TriangleMesh(TriangleMesh &&other) noexcept
-    : Actor{std::move(other)}, _vertices{std::move(other._vertices)},
-      _normals{std::move(other._normals)},
-      _triangles{std::move(other._triangles)} {}
+    : Actor{std::move(other)}, _data{other._data} {}
 
 // TriangleMesh &TriangleMesh::operator=(const TriangleMesh &other) {
 //   if (this == &other)
@@ -126,53 +204,30 @@ TriangleMesh &TriangleMesh::operator=(TriangleMesh &&other) noexcept {
     goto skip;
   _name = std::move(other._name);
   _transform = std::move(other._transform);
+  _data = std::move(other._data);
   material = std::move(other.material);
-  _vertices = std::move(other._vertices);
-  _normals = std::move(other._normals);
-  _triangles = std::move(other._triangles);
 skip:
   return *this;
 }
 
-void TriangleMesh::addVertex(vec3 v) { _vertices.push_back(v); }
-
-void TriangleMesh::addNormal(vec3 n) { _normals.push_back(n); }
-
-void TriangleMesh::addTriangle(Triangle t) { _triangles.push_back(t); }
-
-void TriangleMesh::addUV(vec2 uv) { _uv.push_back(uv); }
-
-const std::vector<vec3> &TriangleMesh::vertices() const { return _vertices; }
-
-const std::vector<vec3> &TriangleMesh::normals() const { return _normals; }
-
-const std::vector<TriangleMesh::Triangle> &TriangleMesh::triangles() const {
-  return _triangles;
+const std::vector<vec3> &TriangleMesh::vertices() const {
+  return _data->vertices;
 }
 
-const std::vector<vec2> &TriangleMesh::uv() const { return _uv; }
-
-void TriangleMesh::translate(vec3 xyz) {
-  this->TransformableObject::translate(xyz);
-  // no need to rebound when simply translating
-  _boundingBox.a += xyz;
-  _boundingBox.b += xyz;
+const std::vector<vec3> &TriangleMesh::normals() const {
+  return _data->normals;
 }
 
-void TriangleMesh::rotate(vec3 euler) {
-  this->TransformableObject::rotate(euler);
-  bound();
+const std::vector<Triangle> &TriangleMesh::triangles() const {
+  return _data->triangles;
 }
 
-void TriangleMesh::scale(vec3 xyz) {
-  this->TransformableObject::scale(xyz);
-  bound();
-}
+const std::vector<vec2> &TriangleMesh::uv() const { return _data->uvs; }
 
 void TriangleMesh::bound() {
   _boundingBox.a = vec3{std::numeric_limits<float>::max()};
   _boundingBox.b = vec3{std::numeric_limits<float>::lowest()};
-  for (auto &local_v : _vertices) {
+  for (auto &local_v : _data->vertices) {
     vec3 v = _transform * vec4{local_v, 1};
     _boundingBox.a = min(_boundingBox.a, v);
     _boundingBox.b = max(_boundingBox.b, v);
@@ -180,19 +235,20 @@ void TriangleMesh::bound() {
   _isBound = true;
 }
 
+// if mass == 0, then assume infinite mass
 void TriangleMesh::initializeRigidBody(float mass) {
   this->RigidBody::initializeRigidBody(mass);
   _centerOfMass = {};
   if (_inverseMass == 0.0f) {
     _invInertiaTensor = {};
-    for (auto &local_v : _vertices)
+    for (auto &local_v : _data->vertices)
       _centerOfMass += vec3{_transform * vec4{local_v, 1}};
-    _centerOfMass /= float(_vertices.size());
+    _centerOfMass /= float(_data->vertices.size());
     return;
   }
-  float vertexMass = 1.0f / (float(_vertices.size()) * _inverseMass);
+  float vertexMass = 1.0f / (float(_data->vertices.size()) * _inverseMass);
   vec3 inertiaTensor{};
-  for (auto &local_v : _vertices) {
+  for (auto &local_v : _data->vertices) {
     vec3 v{_transform * vec4{local_v, 1}};
     inertiaTensor.x += vertexMass * (v.y * v.y + v.z * v.z);
     inertiaTensor.y += vertexMass * (v.x * v.x + v.z * v.z);
@@ -200,108 +256,5 @@ void TriangleMesh::initializeRigidBody(float mass) {
     _centerOfMass += v;
   }
   _invInertiaTensor = 1.0f / inertiaTensor;
-  _centerOfMass /= float(_vertices.size());
-}
-
-std::shared_ptr<TriangleMesh> TriangleMesh::cube() {
-  auto mesh{std::make_shared<TriangleMesh>(std::string{"cube_"} +
-                                           std::to_string(_cubes++))};
-  // front face
-  mesh->addVertex({-1, -1, 1}); // 0
-  mesh->addNormal({0, 0, 1});   // 0
-  mesh->addVertex({1, -1, 1});  // 1
-  mesh->addNormal({0, 0, 1});   // 1
-  mesh->addVertex({1, 1, 1});   // 2
-  mesh->addNormal({0, 0, 1});   // 2
-  mesh->addVertex({-1, 1, 1});  // 3
-  mesh->addNormal({0, 0, 1});   // 3
-  mesh->addTriangle({0, 1, 2});
-  mesh->addTriangle({2, 3, 0});
-
-  // back face
-  mesh->addVertex({1, -1, -1});  // 4
-  mesh->addNormal({0, 0, -1});   // 4
-  mesh->addVertex({-1, -1, -1}); // 5
-  mesh->addNormal({0, 0, -1});   // 5
-  mesh->addVertex({-1, 1, -1});  // 6
-  mesh->addNormal({0, 0, -1});   // 6
-  mesh->addVertex({1, 1, -1});   // 7
-  mesh->addNormal({0, 0, -1});   // 7
-  mesh->addTriangle({4, 5, 6});
-  mesh->addTriangle({6, 7, 4});
-
-  // left face
-  mesh->addVertex({-1, -1, -1}); // 8
-  mesh->addNormal({-1, 0, 0});   // 8
-  mesh->addVertex({-1, -1, 1});  // 9
-  mesh->addNormal({-1, 0, 0});   // 9
-  mesh->addVertex({-1, 1, 1});   // 10
-  mesh->addNormal({-1, 0, 0});   // 10
-  mesh->addVertex({-1, 1, -1});  // 11
-  mesh->addNormal({-1, 0, 0});   // 11
-  mesh->addTriangle({8, 9, 10});
-  mesh->addTriangle({10, 11, 8});
-
-  // right face
-  mesh->addVertex({1, -1, 1});  // 12
-  mesh->addNormal({1, 0, 0});   // 12
-  mesh->addVertex({1, -1, -1}); // 13
-  mesh->addNormal({1, 0, 0});   // 13
-  mesh->addVertex({1, 1, -1});  // 14
-  mesh->addNormal({1, 0, 0});   // 14
-  mesh->addVertex({1, 1, 1});   // 15
-  mesh->addNormal({1, 0, 0});   // 15
-  mesh->addTriangle({12, 13, 14});
-  mesh->addTriangle({14, 15, 12});
-
-  // bottom face
-  mesh->addVertex({-1, -1, -1}); // 16
-  mesh->addNormal({0, -1, 0});   // 16
-  mesh->addVertex({1, -1, -1});  // 17
-  mesh->addNormal({0, -1, 0});   // 17
-  mesh->addVertex({1, -1, 1});   // 18
-  mesh->addNormal({0, -1, 0});   // 18
-  mesh->addVertex({-1, -1, 1});  // 19
-  mesh->addNormal({0, -1, 0});   // 19
-  mesh->addTriangle({16, 17, 18});
-  mesh->addTriangle({18, 19, 16});
-
-  // top face
-  mesh->addVertex({-1, 1, 1});  // 20
-  mesh->addNormal({0, 1, 0});   // 20
-  mesh->addVertex({1, 1, 1});   // 21
-  mesh->addNormal({0, 1, 0});   // 21
-  mesh->addVertex({1, 1, -1});  // 22
-  mesh->addNormal({0, 1, 0});   // 22
-  mesh->addVertex({-1, 1, -1}); // 23
-  mesh->addNormal({0, 1, 0});   // 23
-  mesh->addTriangle({20, 21, 22});
-  mesh->addTriangle({22, 23, 20});
-
-  return mesh;
-}
-
-std::shared_ptr<TriangleMesh> TriangleMesh::plane() {
-  auto mesh{std::make_shared<TriangleMesh>(std::string{"plane_"} +
-                                           std::to_string(_planes++))};
-
-  mesh->addVertex({-1, 0, 1});
-  mesh->addVertex({1, 0, 1});
-  mesh->addVertex({1, 0, -1});
-  mesh->addVertex({-1, 0, -1});
-
-  mesh->addNormal({0, 1, 0});
-  mesh->addNormal({0, 1, 0});
-  mesh->addNormal({0, 1, 0});
-  mesh->addNormal({0, 1, 0});
-
-  mesh->addUV({0, 0});
-  mesh->addUV({1, 0});
-  mesh->addUV({1, 1});
-  mesh->addUV({0, 1});
-
-  mesh->addTriangle({0, 1, 2});
-  mesh->addTriangle({2, 3, 0});
-
-  return mesh;
+  _centerOfMass /= float(_data->vertices.size());
 }

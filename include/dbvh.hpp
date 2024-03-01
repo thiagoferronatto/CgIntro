@@ -8,7 +8,7 @@
 class DynamicBoundingVolumeHierarchy {
 public:
   struct Node {
-    AABB aabb;
+    Aabb aabb;
     std::shared_ptr<Actor> object{};
     std::shared_ptr<Node> parent{}, left{}, right{};
     std::string debugName;
@@ -43,7 +43,7 @@ public:
         }
       }
       auto newNode{
-          std::make_shared<Node>(AABB{glm::min(n1->aabb.a, n2->aabb.a),
+          std::make_shared<Node>(Aabb{glm::min(n1->aabb.a, n2->aabb.a),
                                       glm::max(n1->aabb.b, n2->aabb.b)},
                                  nullptr, nullptr, n1, n2)};
       newNode->debugName = "(" + n1->debugName + " + " + n2->debugName + ")";

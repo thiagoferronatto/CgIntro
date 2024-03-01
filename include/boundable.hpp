@@ -14,10 +14,10 @@ public:
 
   bool isBound() const;
 
-  AABB bounds() const;
+  Aabb bounds() const;
 
 protected:
-  AABB _boundingBox{};
+  Aabb _boundingBox{};
   bool _isBound{};
 };
 
