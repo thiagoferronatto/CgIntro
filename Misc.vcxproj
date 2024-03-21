@@ -168,6 +168,7 @@
     <ClInclude Include="include\shader_sources.hpp" />
     <ClInclude Include="include\camera.hpp" />
     <ClInclude Include="include\custom_assert.hpp" />
+    <ClInclude Include="include\SharedObject.h" />
     <ClInclude Include="include\simulation_step.hpp" />
     <ClInclude Include="include\transformable_object.hpp" />
     <ClInclude Include="include\TriangleMeshBVH.h" />

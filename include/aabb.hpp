@@ -16,6 +16,8 @@ struct AxisAlignedBoundingBox {
 
   glm::vec3 size() const { return b - a; }
 
+  glm::vec3 center() const { return 0.5f * (a + b); }
+
   glm::vec3 a{std::numeric_limits<float>::max()},
       b{std::numeric_limits<float>::lowest()};
 };

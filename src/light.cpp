@@ -24,7 +24,7 @@ Light &Light::operator=(const Light &other) {
     goto skip;
   this->TransformableObject::operator=(other);
   _name = other._name;
-  _children = other._children;
+  //_children = other._children;
   _transform = other._transform;
   color = other.color;
   intensity = other.intensity;
@@ -36,7 +36,7 @@ Light &Light::operator=(Light &&other) noexcept {
   if (&other == this)
     goto skip;
   _name = std::move(other._name);
-  _children = std::move(other._children);
+  //_children = std::move(other._children);
   _transform = std::move(other._transform);
   color = std::move(other.color);
   intensity = other.intensity;

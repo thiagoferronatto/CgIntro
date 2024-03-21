@@ -31,6 +31,24 @@
     <Filter Include="Header Files\Collision\Response">
       <UniqueIdentifier>{b5c2b209-4956-4708-ad95-241777c53d7c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Externals">
+      <UniqueIdentifier>{e2bf5cdd-7fad-49ab-be2b-e707ea86373b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Externals\Pagliosa">
+      <UniqueIdentifier>{13f79ecf-0d0a-41da-8ada-727a0cb73487}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Externals\Devillers">
+      <UniqueIdentifier>{779fbf76-9c1f-461e-aee5-1cd4450f6c91}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Externals">
+      <UniqueIdentifier>{15f08a97-71ea-43d6-9eec-ee83f200c15f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Externals\Devillers">
+      <UniqueIdentifier>{5703d861-8c24-46d7-9709-adfae92c54ab}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Externals\Pagliosa">
+      <UniqueIdentifier>{3cb44f82-d8be-4bb8-bbf7-c90026222e1c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\custom_assert.hpp">
@@ -75,9 +93,6 @@
     <ClInclude Include="include\ppm.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="include\triangle_intersection.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="include\aabb.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -88,15 +103,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\dbvh.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="dependencies\DynamicTree.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\BVH.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="include\TriangleMeshBVH.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="include\dbvt_broadphase.hpp">
@@ -113,6 +119,21 @@
     </ClInclude>
     <ClInclude Include="include\bvt_collision.hpp">
       <Filter>Header Files\Collision\Detection</Filter>
+    </ClInclude>
+    <ClInclude Include="include\TriangleMeshBVH.h">
+      <Filter>Header Files\Externals\Pagliosa</Filter>
+    </ClInclude>
+    <ClInclude Include="include\BVH.h">
+      <Filter>Header Files\Externals\Pagliosa</Filter>
+    </ClInclude>
+    <ClInclude Include="dependencies\DynamicTree.h">
+      <Filter>Header Files\Externals\Pagliosa</Filter>
+    </ClInclude>
+    <ClInclude Include="include\triangle_intersection.hpp">
+      <Filter>Header Files\Externals\Devillers</Filter>
+    </ClInclude>
+    <ClInclude Include="include\SharedObject.h">
+      <Filter>Header Files\Externals\Pagliosa</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -177,13 +198,13 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\triangle_intersection.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\BVH.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Externals\Devillers</Filter>
     </ClCompile>
     <ClCompile Include="src\TriangleMeshBVH.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Externals\Pagliosa</Filter>
+    </ClCompile>
+    <ClCompile Include="src\BVH.cpp">
+      <Filter>Source Files\Externals\Pagliosa</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

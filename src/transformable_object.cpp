@@ -36,9 +36,10 @@ void TransformableObject::translate(vec3 xyz) {
   _transform[3].y += xyz.y;
   _transform[3].z += xyz.z;
   //_transform = glm::translate(_transform, xyz / scale());
-  for (auto child : _children)
-    if (auto transChild{std::dynamic_pointer_cast<TransformableObject>(child)})
-      transChild->translate(xyz);
+  // for (auto child : _children)
+  //  if (auto
+  //  transChild{std::dynamic_pointer_cast<TransformableObject>(child)})
+  //    transChild->translate(xyz);
 }
 
 void TransformableObject::rotate(vec3 euler) {
@@ -67,9 +68,10 @@ void TransformableObject::rotate(vec3 euler) {
   _transform[1] *= s.y;
   _transform[2] *= s.z;
   translate(pos);
-  for (auto child : _children)
-    if (auto transChild{std::dynamic_pointer_cast<TransformableObject>(child)})
-      transChild->rotate(euler);
+  // for (auto child : _children)
+  //   if (auto
+  //   transChild{std::dynamic_pointer_cast<TransformableObject>(child)})
+  //     transChild->rotate(euler);
 }
 
 void TransformableObject::rotate(float t, vec3 axis) {
@@ -95,20 +97,21 @@ void TransformableObject::rotate(float t, vec3 axis) {
   _transform[1] *= s_.y;
   _transform[2] *= s_.z;
   translate(pos);
-  for (auto child : _children)
-    if (auto transChild{std::dynamic_pointer_cast<TransformableObject>(child)})
-      transChild->rotate(t, axis);
+  // for (auto child : _children)
+  //   if (auto
+  //   transChild{std::dynamic_pointer_cast<TransformableObject>(child)})
+  //     transChild->rotate(t, axis);
 }
 
 void TransformableObject::scale(vec3 xyz) {
-  xyz /= scale();
   _transform[0] *= xyz.x;
   _transform[1] *= xyz.y;
   _transform[2] *= xyz.z;
   //_transform = glm::scale(_transform, xyz);
-  for (auto child : _children)
-    if (auto transChild{std::dynamic_pointer_cast<TransformableObject>(child)})
-      transChild->scale(xyz);
+  // for (auto child : _children)
+  //  if (auto
+  //  transChild{std::dynamic_pointer_cast<TransformableObject>(child)})
+  //    transChild->scale(xyz);
 }
 
 vec3 TransformableObject::position() const { return _transform[3]; }
@@ -117,7 +120,7 @@ void TransformableObject::setPosition(vec3 xyz) { _transform[3] = {xyz, 1}; }
 
 vec3 TransformableObject::rotation() const {
   vec3 euler;
-  glm::extractEulerAngleXYZ(_transform, euler.x, euler.y, euler.z);
+  extractEulerAngleXYZ(inverse(_transform), euler.x, euler.y, euler.z);
   return euler;
 }
 
@@ -126,20 +129,17 @@ void TransformableObject::setRotation(vec3 euler) {
   _transform[0] = s.x * vec4{1, 0, 0, 0};
   _transform[1] = s.y * vec4{0, 1, 0, 0};
   _transform[2] = s.z * vec4{0, 0, 1, 0};
-  _transform = glm::eulerAngleXYZ(euler.x, euler.y, euler.z) * _transform;
+  rotate(euler);
 }
 
+// WARNING: expensive as fuck
 vec3 TransformableObject::scale() const {
   return {glm::length(_transform[0]), //
           glm::length(_transform[1]), //
           glm::length(_transform[2])};
 }
 
-void TransformableObject::setScale(vec3 xyz) {
-  _transform[0] *= xyz.x / glm::length(_transform[0]);
-  _transform[1] *= xyz.y / glm::length(_transform[1]);
-  _transform[2] *= xyz.z / glm::length(_transform[2]);
-}
+void TransformableObject::setScale(vec3 xyz) { scale(xyz / scale()); }
 
 const mat4 &TransformableObject::transform() const { return _transform; }
 

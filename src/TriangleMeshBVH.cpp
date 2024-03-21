@@ -38,10 +38,11 @@ namespace cg { // begin namespace cg
 //
 // TriangleMeshBVH implementation
 // ===============
-TriangleMeshBVH::TriangleMeshBVH(TriangleMesh &mesh, uint32_t maxt)
-    : BVHBase{maxt}, _mesh{&mesh} {
+TriangleMeshBVH::TriangleMeshBVH(std::shared_ptr<Actor> actor,
+                                 PrimitiveArray &&primitives, uint32_t maxt)
+    : BVH{std::move(primitives), maxt}, _mesh{actor->mesh}, _actor{actor} {
   const auto &m = _mesh->data();
-  auto nt = (uint32_t)m->triangles.size();
+  auto nt = (uint32_t)m.triangles.size();
 
   assert(nt > 0);
   _primitiveIds.resize(nt);
@@ -51,20 +52,20 @@ TriangleMeshBVH::TriangleMeshBVH(TriangleMesh &mesh, uint32_t maxt)
   for (uint32_t i = 0; i < nt; ++i) {
     _primitiveIds[i] = i;
 
-    auto t = m->triangles.data() + i;
+    auto t = m.triangles.data() + i;
     Bounds3f b;
 
-    b.inflate(m->vertices[t->v1]);
-    b.inflate(m->vertices[t->v2]);
-    b.inflate(m->vertices[t->v3]);
+    b.inflate(m.vertices[t->v1]);
+    b.inflate(m.vertices[t->v2]);
+    b.inflate(m.vertices[t->v3]);
     primitiveInfo[i] = {i, b};
   }
   build(primitiveInfo);
 #ifdef _DEBUG
   if (true) {
-    printf("Mesh bounds: (%g, %g, %g), (%g, %g, %g)\n", _mesh->bounds().a.x,
-           _mesh->bounds().a.y, _mesh->bounds().a.z, _mesh->bounds().b.x,
-           _mesh->bounds().b.y, _mesh->bounds().b.z);
+    printf("Mesh bounds: (%g, %g, %g), (%g, %g, %g)\n", _actor->bounds().a.x,
+           _actor->bounds().a.y, _actor->bounds().a.z, _actor->bounds().b.x,
+           _actor->bounds().b.y, _actor->bounds().b.z);
     printf("Mesh triangles: %d\n", nt);
     printf("BVH bounds: (%g, %g, %g), (%g, %g, %g)\n", bounds().a.x,
            bounds().a.y, bounds().a.z, bounds().b.x, bounds().b.y,

@@ -33,8 +33,10 @@
 #ifndef __TriangleMeshBVH_h
 #define __TriangleMeshBVH_h
 
+#include <memory>
+
 #include "BVH.h"
-#include "triangle_mesh.hpp"
+#include "actor.hpp"
 
 namespace cg { // begin namespace cg
 
@@ -42,20 +44,24 @@ namespace cg { // begin namespace cg
 //
 // TriangleMeshBVH: triangle mesh BVH class
 // ===============
-class TriangleMeshBVH final : public BVHBase {
+class TriangleMeshBVH final : public BVH<Triangle<vec3>> {
 public:
-  TriangleMeshBVH(TriangleMesh &, uint32_t = 64);
+  TriangleMeshBVH(std::shared_ptr<Actor> actor, PrimitiveArray &&,
+                  uint32_t = 64);
 
   const TriangleMesh *mesh() const { return _mesh; }
 
-  TriangleMesh *mesh() { return _mesh; }
+  TriangleMesh *const mesh() { return _mesh; }
+
+  Actor *actor() { return _actor.get(); }
 
   auto root() const { return _root; }
 
   auto getNode(void *ptr) const { return (Node *)ptr; }
 
 private:
-  TriangleMesh *_mesh;
+  Reference<TriangleMesh> _mesh;
+  std::shared_ptr<Actor> _actor;
 
 }; // TriangleMeshBVH
 

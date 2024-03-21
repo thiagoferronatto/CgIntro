@@ -19,22 +19,23 @@ public:
   const std::string &name() const;
   std::string &name();
 
-  template <typename T> void addChild(std::shared_ptr<T> child);
+  // template <typename T> void addChild(std::shared_ptr<T> child);
 
-  const std::vector<std::shared_ptr<Object>> &children() const;
+  // const std::vector<std::shared_ptr<Object>> &children() const;
 
-  std::shared_ptr<Object> parent() const;
+  // std::shared_ptr<Object> parent() const;
 
 protected:
   std::string _name;
-  std::vector<std::shared_ptr<Object>> _children{};
-  std::shared_ptr<Object> _parent{};
+  // std::vector<std::shared_ptr<Object>> _children{};
+  // std::shared_ptr<Object> _parent{};
 
 private:
 };
 
-template <typename T> inline void Object::addChild(std::shared_ptr<T> child) {
-  _children.emplace_back(std::move(child));
-}
+// template <typename T> inline void Object::addChild(std::shared_ptr<T> child)
+// {
+//   _children.emplace_back(std::move(child));
+// }
 
 #endif // OBJECT_HPP

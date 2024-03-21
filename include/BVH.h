@@ -33,7 +33,9 @@
 #ifndef __BVH_h
 #define __BVH_h
 
+#include "SharedObject.h"
 #include "aabb.hpp"
+
 #include <cassert>
 #include <cinttypes>
 #include <functional>
@@ -58,7 +60,7 @@ using BVHNodeFunction = std::function<void(const BVHNodeInfo &)>;
 //
 // BVHBase: BVH base class
 // =======
-class BVHBase {
+class BVHBase : public SharedObject {
 public:
   ~BVHBase();
 
@@ -146,15 +148,16 @@ struct BVHBase::PrimitiveInfo {
 //
 // BVH: BVH class
 // ===
-template <typename T> class BVH final : public BVHBase {
+template <typename T> class BVH : public BVHBase { // changed from final
 public:
-  using PrimitiveArray = std::vector<T *>;
+  using PrimitiveArray = std::vector<T>; // changed from std::vector<T *>
 
   BVH(PrimitiveArray &&, uint32_t = 8);
 
-  auto &primitives() const { return _primitives; }
+  const auto &primitives() const { return _primitives; }
+  auto &primitives() { return _primitives; }
 
-private:
+protected: // changed from private
   PrimitiveArray _primitives;
 
 }; // BVH
@@ -169,8 +172,13 @@ BVH<T>::BVH(PrimitiveArray &&primitives, uint32_t maxPrimitivesPerNode)
 
   PrimitiveInfoArray primitiveInfo(np);
 
-  for (uint32_t i = 0; i < np; ++i)
-    primitiveInfo[i] = {_primitiveIds[i] = i, _primitives[i]->bounds()};
+  for (uint32_t i = 0; i < np; ++i) {
+    Aabb bounds;
+    bounds.inflate(_primitives[i].v1);
+    bounds.inflate(_primitives[i].v2);
+    bounds.inflate(_primitives[i].v3);
+    primitiveInfo[i] = {_primitiveIds[i] = i, bounds};
+  }
   build(primitiveInfo);
 }
 

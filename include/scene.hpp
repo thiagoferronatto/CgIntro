@@ -5,12 +5,12 @@
 #include <memory>
 #include <stdexcept>
 
+#include "actor.hpp"
 #include "camera.hpp"
 #include "custom_assert.hpp"
 #include "gl_util.hpp"
 #include "light.hpp"
 #include "shader_sources.hpp"
-#include "triangle_mesh.hpp"
 #include "window.hpp"
 
 class Scene {
@@ -31,6 +31,8 @@ public:
 
   vec3 ambient{};
 
+  float dt() const { return _dt; }
+
 private:
   void _addChildren(std::shared_ptr<Object> object);
 
@@ -38,6 +40,7 @@ private:
   std::vector<std::shared_ptr<Actor>> _actors;
   std::vector<std::shared_ptr<Light>> _lights;
   std::shared_ptr<TransformableObject> _currentObject;
+  float _dt{};
 };
 
 #endif // SCENE_HPP
