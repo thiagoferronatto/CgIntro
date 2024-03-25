@@ -41,7 +41,7 @@ struct DbvtBroadphase {
 
       // FIXME: this does not work, actors are no longer the leaves, BVTs are
       // use tree bounds instead (which means the tree needs its own transform?)
-      indices[i++] = tree.add(actor->bounds(), actor.get());
+      indices[i++] = tree.add(actor->bounds(), actor);
     }
   }
 

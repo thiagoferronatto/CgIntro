@@ -26,15 +26,13 @@ void Scene::addLight(std::shared_ptr<Light> light) {
   _addChildren(light);
 }
 
-const std::vector<std::shared_ptr<Actor>> &Scene::actors() const {
-  return _actors;
-}
+const std::vector<Actor *> &Scene::actors() const { return _actors; }
 
 const std::vector<std::shared_ptr<Light>> &Scene::lights() const {
   return _lights;
 }
 
-void Scene::addActor(std::shared_ptr<Actor> actor) { _actors.push_back(actor); }
+void Scene::addActor(Actor *actor) { _actors.push_back(actor); }
 
 void Scene::_addChildren(std::shared_ptr<Object> object) {
   // for (auto child : object->children()) {
@@ -79,7 +77,7 @@ static void transferActors(std::shared_ptr<GLuint[]> &buffers,
   size_t i{};
   logMsg("[INFO] Transferring scene data to GPU...\n");
   for (auto obj : actors) {
-    if (auto actor{std::dynamic_pointer_cast<Actor>(obj)}) {
+    if (auto actor{dynamic_cast<Actor *>(obj)}) {
       auto &v{actor->mesh->vertices()}, &n{actor->mesh->normals()};
       auto &uv{actor->mesh->uv()};
       auto &t{actor->mesh->triangles()};
@@ -175,8 +173,7 @@ static void makeMainMenu(Scene *scene, const Window &window,
                   ImGui::MenuItem(fileName.string().c_str())) {
                 auto mesh{new TriangleMesh(
                     TriangleMeshData::fromObj(filePath.string()))};
-                scene->addActor(
-                    std::make_shared<Actor>(fileName.string(), mesh));
+                scene->addActor(new Actor{fileName.string(), mesh});
                 transferActors(buffers, textures, prevObjAmt, scene->actors());
               }
             }
@@ -190,13 +187,13 @@ static void makeMainMenu(Scene *scene, const Window &window,
         if (ImGui::BeginMenu("Scene")) {
           if (ImGui::BeginMenu("Add premade actor")) {
             if (ImGui::MenuItem("Cube")) {
-              scene->addActor(std::make_shared<Actor>(
-                  "TEMPORARY", new TriangleMesh{TriangleMeshData::cube()}));
+              scene->addActor(new Actor{
+                  "TEMPORARY", new TriangleMesh{TriangleMeshData::cube()}});
               transferActors(buffers, textures, prevObjAmt, scene->actors());
             }
             if (ImGui::MenuItem("Plane")) {
-              scene->addActor(std::make_shared<Actor>(
-                  "TEMPORARY", new TriangleMesh{TriangleMeshData::plane()}));
+              scene->addActor(new Actor{
+                  "TEMPORARY", new TriangleMesh{TriangleMeshData::plane()}});
               transferActors(buffers, textures, prevObjAmt, scene->actors());
             }
             ImGui::EndMenu();
@@ -304,11 +301,11 @@ void Scene::render(const Window &window, const std::function<void()> &f) {
               auto it{_cameras.end()};
               for (auto &cam : _cameras) {
                 if (ImGui::MenuItem(cam->name().c_str()))
-                  _currentObject = cam;
+                  _currentObject = cam.get();
                 if (_cameras.size() > 1) {
                   if (ImGui::BeginPopupContextItem()) {
                     if (ImGui::MenuItem("Remove")) {
-                      if (_currentObject == cam)
+                      if (_currentObject == cam.get())
                         _currentObject = nullptr;
                       it = std::find(_cameras.begin(), _cameras.end(), cam);
                     }
@@ -326,10 +323,10 @@ void Scene::render(const Window &window, const std::function<void()> &f) {
               auto it{_lights.end()};
               for (auto light : _lights) {
                 if (ImGui::MenuItem(light->name().c_str()))
-                  _currentObject = light;
+                  _currentObject = light.get();
                 if (ImGui::BeginPopupContextItem()) {
                   if (ImGui::MenuItem("Remove")) {
-                    if (_currentObject == light)
+                    if (_currentObject == light.get())
                       _currentObject = nullptr;
                     it = std::find(_lights.begin(), _lights.end(), light);
                   }
@@ -366,7 +363,7 @@ void Scene::render(const Window &window, const std::function<void()> &f) {
             if (ImGui::DragFloat3("Position", &pos.x, 0.1f)) {
               _currentObject->translate(
                   vec4{pos - _currentObject->position(), 0});
-              if (auto cam{std::dynamic_pointer_cast<Camera>(_currentObject)})
+              if (auto cam{dynamic_cast<Camera *>(_currentObject)})
                 cam->updateWorldToCamera();
             }
             vec3 rotation{_currentObject->rotation()};
@@ -374,7 +371,7 @@ void Scene::render(const Window &window, const std::function<void()> &f) {
                                   "XYZ")) {
               auto tmp{rotation - _currentObject->rotation()};
               _currentObject->rotate(tmp);
-              if (auto cam{std::dynamic_pointer_cast<Camera>(_currentObject)})
+              if (auto cam{dynamic_cast<Camera *>(_currentObject)})
                 cam->updateWorldToCamera();
             }
             vec3 scale{_currentObject->scale()};
@@ -382,7 +379,7 @@ void Scene::render(const Window &window, const std::function<void()> &f) {
               _currentObject->setScale(scale);
           }
 
-          if (auto actor{std::dynamic_pointer_cast<Actor>(_currentObject)}) {
+          if (auto actor{dynamic_cast<Actor *>(_currentObject)}) {
             if (ImGui::CollapsingHeader("Material",
                                         ImGuiTreeNodeFlags_DefaultOpen)) {
               ImGui::ColorEdit3("Ambient (Ka)", &actor->material.Ka.x);
@@ -391,14 +388,14 @@ void Scene::render(const Window &window, const std::function<void()> &f) {
               ImGui::DragFloat("Shininess (Ns)", &actor->material.Ns, 0.1, 0);
             }
           }
-          if (auto light{std::dynamic_pointer_cast<Light>(_currentObject)}) {
+          if (auto light{dynamic_cast<Light *>(_currentObject)}) {
             if (ImGui::CollapsingHeader("Light properties",
                                         ImGuiTreeNodeFlags_DefaultOpen)) {
               ImGui::ColorEdit3("Color", &light->color.x);
               ImGui::DragFloat("Intensity", &light->intensity, 0.1f, 0, 1e10);
             }
           }
-          if (auto cam{std::dynamic_pointer_cast<Camera>(_currentObject)}) {
+          if (auto cam{dynamic_cast<Camera *>(_currentObject)}) {
             if (ImGui::CollapsingHeader("Camera properties",
                                         ImGuiTreeNodeFlags_DefaultOpen)) {
               if (auto fov{cam->fov()};
@@ -542,8 +539,7 @@ void Scene::render(const Window &window, const std::function<void()> &f) {
       // adding EBO to VAO
       glCheck(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffers[i + 3 * objAmt]));
 
-      if (auto actor{std::dynamic_pointer_cast<Actor>(obj)}) {
-
+      if (auto actor{dynamic_cast<Actor *>(obj)}) {
         // uniforms
         auto mLoc{glGetUniformLocation(program, "M")};
         glCheck(
@@ -562,8 +558,8 @@ void Scene::render(const Window &window, const std::function<void()> &f) {
         glCheck(glUniform1f(materialDLoc, actor->material.d));
 
         auto selectedLoc{glGetUniformLocation(program, "selected")};
-        glUniform1i(selectedLoc, GLint(std::dynamic_pointer_cast<Actor>(
-                                           _currentObject) == actor));
+        glUniform1i(selectedLoc,
+                    GLint(dynamic_cast<Actor *>(_currentObject) == actor));
         auto texturedLoc{glGetUniformLocation(program, "textured")};
         glCheck(
             glUniform1i(texturedLoc, GLint(!actor->material.map_Kd.empty())));

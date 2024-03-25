@@ -38,8 +38,8 @@ namespace cg { // begin namespace cg
 //
 // TriangleMeshBVH implementation
 // ===============
-TriangleMeshBVH::TriangleMeshBVH(std::shared_ptr<Actor> actor,
-                                 PrimitiveArray &&primitives, uint32_t maxt)
+TriangleMeshBVH::TriangleMeshBVH(Actor *actor, PrimitiveArray &&primitives,
+                                 uint32_t maxt)
     : BVH{std::move(primitives), maxt}, _actor{actor} {
   const auto &m = _actor->mesh->data();
   auto nt = (uint32_t)m.triangles.size();

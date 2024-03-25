@@ -46,21 +46,20 @@ namespace cg { // begin namespace cg
 // ===============
 class TriangleMeshBVH final : public BVH<Triangle<vec3>> {
 public:
-  TriangleMeshBVH(std::shared_ptr<Actor> actor, PrimitiveArray &&,
-                  uint32_t = 64);
+  TriangleMeshBVH(Actor *actor, PrimitiveArray &&, uint32_t = 64);
 
   const cg::Reference<TriangleMesh> mesh() const { return _actor->mesh; }
 
   cg::Reference<TriangleMesh> mesh() { return _actor->mesh; }
 
-  Actor *actor() { return _actor.get(); }
+  auto actor() { return _actor; }
 
   auto root() const { return _root; }
 
   auto getNode(void *ptr) const { return (Node *)ptr; }
 
 private:
-  std::shared_ptr<Actor> _actor;
+  Actor *_actor;
 
 }; // TriangleMeshBVH
 
