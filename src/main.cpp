@@ -21,12 +21,12 @@ static void addDefaultLights(Scene &scene) {
 
 static void addDefaultObjects(Scene &scene) {
   constexpr int xdim{3}, ydim{3}, zdim{3};
-  auto mesh{new TriangleMesh(TriangleMeshData::cube())};
+  auto mesh{new TriangleMesh{TriangleMeshData::cube()}};
 
   for (int i = 0; i < xdim; ++i) {
     for (int j = 0; j < ydim; ++j) {
       for (int k = 0; k < zdim; ++k) {
-        auto actor{std::make_shared<Actor>("asdf", *mesh)};
+        auto actor{std::make_shared<Actor>("asdf", mesh)};
         actor->material.Kd = {float(i + 1) / xdim, float(j + 1) / ydim,
                               float(k + 1) / zdim};
         actor->scale(vec3{0.75});
@@ -37,7 +37,7 @@ static void addDefaultObjects(Scene &scene) {
     }
   }
   auto groundMesh{new TriangleMesh{TriangleMeshData::plane()}};
-  auto ground = std::make_shared<Actor>("ground", *groundMesh);
+  auto ground{std::make_shared<Actor>("ground", groundMesh)};
   ground->scale({50, 1, 50});
   ground->translate({0, -3.5, 0});
   ground->initializeRigidBody(0);
@@ -71,7 +71,7 @@ int main() {
   DbvtBroadphase broadphase{defaultScene};
 
   defaultScene.render(window, [&] { //
-    // broadphase.collide();
+    broadphase.collide();
   });
 
   return 0;

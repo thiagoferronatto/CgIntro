@@ -8,7 +8,7 @@
 
 class Actor : public TransformableObject, public RigidBody {
 public:
-  Actor(std::string name, const TriangleMesh &mesh);
+  Actor(std::string name, const TriangleMesh *mesh);
   Actor(std::string name, Material m);
   Actor(const Actor &other);
   Actor(Actor &&other) noexcept;

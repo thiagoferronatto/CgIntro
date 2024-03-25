@@ -1,7 +1,7 @@
 #include "actor.hpp"
 
-Actor::Actor(std::string name, const TriangleMesh &mesh)
-    : TransformableObject{std::move(name)}, mesh{&mesh} {}
+Actor::Actor(std::string name, const TriangleMesh *mesh)
+    : TransformableObject{std::move(name)}, mesh{mesh} {}
 
 Actor::Actor(std::string name, Material m)
     : TransformableObject{std::move(name)}, material{m} {}

@@ -176,7 +176,7 @@ static void makeMainMenu(Scene *scene, const Window &window,
                 auto mesh{new TriangleMesh(
                     TriangleMeshData::fromObj(filePath.string()))};
                 scene->addActor(
-                    std::make_shared<Actor>(fileName.string(), *mesh));
+                    std::make_shared<Actor>(fileName.string(), mesh));
                 transferActors(buffers, textures, prevObjAmt, scene->actors());
               }
             }
@@ -191,12 +191,12 @@ static void makeMainMenu(Scene *scene, const Window &window,
           if (ImGui::BeginMenu("Add premade actor")) {
             if (ImGui::MenuItem("Cube")) {
               scene->addActor(std::make_shared<Actor>(
-                  "TEMPORARY", *new TriangleMesh{TriangleMeshData::cube()}));
+                  "TEMPORARY", new TriangleMesh{TriangleMeshData::cube()}));
               transferActors(buffers, textures, prevObjAmt, scene->actors());
             }
             if (ImGui::MenuItem("Plane")) {
               scene->addActor(std::make_shared<Actor>(
-                  "TEMPORARY", *new TriangleMesh{TriangleMeshData::plane()}));
+                  "TEMPORARY", new TriangleMesh{TriangleMeshData::plane()}));
               transferActors(buffers, textures, prevObjAmt, scene->actors());
             }
             ImGui::EndMenu();

@@ -49,9 +49,9 @@ public:
   TriangleMeshBVH(std::shared_ptr<Actor> actor, PrimitiveArray &&,
                   uint32_t = 64);
 
-  const TriangleMesh *mesh() const { return _mesh; }
+  const cg::Reference<TriangleMesh> mesh() const { return _actor->mesh; }
 
-  TriangleMesh *const mesh() { return _mesh; }
+  cg::Reference<TriangleMesh> mesh() { return _actor->mesh; }
 
   Actor *actor() { return _actor.get(); }
 
@@ -60,7 +60,6 @@ public:
   auto getNode(void *ptr) const { return (Node *)ptr; }
 
 private:
-  Reference<TriangleMesh> _mesh;
   std::shared_ptr<Actor> _actor;
 
 }; // TriangleMeshBVH
