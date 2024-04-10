@@ -24,30 +24,18 @@ Window::Window(size_t width, size_t height, const char *title)
   if (glfwRawMouseMotionSupported())
     glfwSetInputMode(_window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
 
-  glfwSetFramebufferSizeCallback(_window,
-                                 [](GLFWwindow *window, int width, int height) {
-                                   glViewport(0, 0, width, height);
-                                 });
+  glfwSetWindowSizeCallback(_window,
+                            [](GLFWwindow *window, int width, int height) {
+                              glViewport(0, 0, width, height);
+                            });
 
-  // ImGui
-  IMGUI_CHECKVERSION();
-  ImGui::CreateContext();
-  ImGuiIO &io = ImGui::GetIO();
-  io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-  io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
-  ImGui_ImplGlfw_InitForOpenGL(_window, true);
-  ImGui_ImplOpenGL3_Init();
-  auto segoeUi = io.Fonts->AddFontFromFileTTF("assets/fonts/segoeui.ttf", 16);
-  if (segoeUi) {
-    io.Fonts->Build();
-    io.FontDefault = segoeUi;
-  }
+  //glfwSetFramebufferSizeCallback(_window,
+  //                               [](GLFWwindow *window, int width, int height) {
+  //                                 glViewport(0, 0, width, height);
+  //                               });
 }
 
 Window::~Window() {
-  ImGui_ImplOpenGL3_Shutdown();
-  ImGui_ImplGlfw_Shutdown();
-  ImGui::DestroyContext();
   glfwTerminate();
 }
 

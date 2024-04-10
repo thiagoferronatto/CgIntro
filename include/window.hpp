@@ -4,9 +4,6 @@
 // clang-format off
 #include "glad/glad.h"
 #include "GLFW/glfw3.h"
-#include "imgui/imgui.h"
-#include "imgui/imgui_impl_glfw.h"
-#include "imgui/imgui_impl_opengl3.h"
 // clang-format on
 #include "glm/vec3.hpp"
 
@@ -33,7 +30,6 @@ public:
 private:
   GLFWwindow *_window{};
   size_t _width, _height;
-  ImGuiIO *_imguiIo{};
 };
 
 #endif // GL_BOILERPLATE_HPP
