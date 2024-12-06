@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <numeric>
+#include <print>
 #include <random>
 #include <ranges>
 #include <vector>
@@ -9,13 +10,87 @@
 #include "glm/glm.hpp"
 #include "window.hpp"
 
+// Rudimentary interval arithmetic implementation
+struct Interval {
+  Interval() = default;
+  Interval(float a_, float b_) : a{a_}, b{b_} {}
+  Interval(float x) : a{x}, b{x} {}
+
+  float a{};
+  float b{};
+};
+
+Interval operator+(const Interval& i0, const Interval& i1) {
+  return {i0.a + i1.a, i0.b + i1.b};
+}
+
+Interval operator+(const Interval& i0, float x) { return i0 + Interval{x, x}; }
+
+Interval operator+(float x, const Interval& i0) { return i0 + x; }
+
+Interval operator-(const Interval& i0, const Interval& i1) {
+  return {i0.a - i1.b, i0.b - i1.a};
+}
+
+Interval operator-(const Interval& i0, float x) { return i0 - Interval{x, x}; }
+
+Interval operator*(const Interval& i0, const Interval& i1) {
+  return {glm::min(i0.a * i1.a, i0.a * i1.b, i0.b * i1.a, i0.b * i1.b),
+          glm::max(i0.a * i1.a, i0.a * i1.b, i0.b * i1.a, i0.b * i1.b)};
+}
+
+Interval operator-(float x, const Interval& i0) {
+  return (i0 * Interval{-1, -1}) + x;
+}
+
+Interval operator*(const Interval& i0, float x) { return i0 * Interval{x, x}; }
+
+Interval operator*(float x, const Interval& i0) { return i0 * x; }
+
+using iavec3 = glm::tvec3<Interval>;
+
 struct TriangleMesh {
   std::vector<glm::vec3> vertices;
   std::vector<glm::vec3> normals;
   std::vector<glm::uvec3> triangles;
 };
 
-auto tessellate(auto&& controlPoints, unsigned level) {
+struct AxisAlignedBox {
+  glm::vec3 min;
+  glm::vec3 max;
+};
+
+using AAB = AxisAlignedBox;
+
+auto getBoxFromBezierPatch(auto&& ctrlPts, const Interval& u,
+                           const Interval& v) {
+  Interval B[4];
+  B[0] = B[3] = {1, 1};
+  B[1] = B[2] = {3, 3};
+
+  auto u2 = u * u, u3 = u2 * u;
+  auto uc = 1 - u, uc2 = uc * uc, uc3 = uc2 * uc;
+  auto v2 = v * v, v3 = v2 * v;
+  auto vc = 1 - v, vc2 = vc * vc, vc3 = vc2 * vc;
+  Interval U[4]{{1, 1}, u, u2, u3};
+  Interval UC[4]{{1, 1}, uc, uc2, uc3};
+  Interval V[4]{{1, 1}, v, v2, v3};
+  Interval VC[4]{{1, 1}, vc, vc2, vc3};
+
+  iavec3 s{{}, {}, {}};
+  for (int i = 0; i < 4; ++i) {
+    auto BU = B[i] * U[i] * UC[3 - i];
+    for (int j = 0; j < 4; ++j) {
+      auto BV = B[j] * V[j] * VC[3 - j];
+      auto p = ctrlPts[4 * i + j];
+      s = s + BU * BV * iavec3{p};
+    }
+  }
+
+  return AAB{{s.x.a, s.y.a, s.z.a}, {s.x.b, s.y.b, s.z.b}};
+}
+
+auto tessellateBezierPatch(auto&& controlPoints, unsigned level) {
   TriangleMesh mesh;
   auto stepSize{1.0f / level};
   float u{};
@@ -69,77 +144,7 @@ auto tessellate(auto&& controlPoints, unsigned level) {
   return mesh;
 }
 
-struct QuadMesh {
-  std::vector<glm::vec3> vertices;
-  std::vector<GLuint> indices;
-};
-
-int main() {
-  constexpr size_t w{1600}, h{900};
-  Window window{w, h, "Computer Graphics Intro"};
-
-  TriangleMesh mesh;
-  // mesh.vertices.push_back({-0.5, 0, 0.5});
-  // mesh.vertices.push_back({0.5, 0, 0.5});
-  // mesh.vertices.push_back({0, 0, -0.5});
-
-  // mesh.normals.push_back({0, 1, 0});
-  // mesh.normals.push_back({0, 1, 0});
-  // mesh.normals.push_back({0, 1, 0});
-
-  // mesh.triangles.push_back({0, 1, 2});
-
-  std::vector<glm::vec3> ctrlPts;
-  ctrlPts.push_back({0, 0, 0});
-  ctrlPts.push_back({1, 0, 0});
-  ctrlPts.push_back({2, 0, 0});
-  ctrlPts.push_back({3, 0, 0});
-
-  ctrlPts.push_back({0, 0, -1});
-  ctrlPts.push_back({1, 0, -1});
-  ctrlPts.push_back({2, 5, -1});
-  ctrlPts.push_back({3, 0, -1});
-
-  ctrlPts.push_back({0, 0, -2});
-  ctrlPts.push_back({1, 0, -2});
-  ctrlPts.push_back({2, 0, -2});
-  ctrlPts.push_back({3, 0, -2});
-
-  ctrlPts.push_back({0, 0, -3});
-  ctrlPts.push_back({1, 0, -3});
-  ctrlPts.push_back({2, 0, -3});
-  ctrlPts.push_back({3, 0, -3});
-
-  mesh = tessellate(ctrlPts, 2048);
-
-  GLuint vbos[2];
-  glGenBuffers(2, vbos);
-  glBindBuffer(GL_ARRAY_BUFFER, vbos[0]);
-  glBufferData(GL_ARRAY_BUFFER, mesh.vertices.size() * sizeof(glm::vec3),
-               mesh.vertices.data(), GL_STATIC_DRAW);
-
-  glBindBuffer(GL_ARRAY_BUFFER, vbos[1]);
-  glBufferData(GL_ARRAY_BUFFER, mesh.normals.size() * sizeof(glm::vec3),
-               mesh.normals.data(), GL_STATIC_DRAW);
-
-  GLuint vao;
-  glCreateVertexArrays(1, &vao);
-  glBindVertexArray(vao);
-  glBindBuffer(GL_ARRAY_BUFFER, vbos[0]);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-  glEnableVertexAttribArray(0);
-  glBindBuffer(GL_ARRAY_BUFFER, vbos[1]);
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-  glEnableVertexAttribArray(1);
-
-  GLuint ebo;
-  glGenBuffers(1, &ebo);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-               mesh.triangles.size() * sizeof(glm::uvec3),
-               mesh.triangles.data(), GL_STATIC_DRAW);
-
-  constexpr auto vsSrc{R"(
+constexpr auto vsSrc{R"(
     #version 460
 
     layout (location = 0) in vec3 position;
@@ -158,11 +163,12 @@ int main() {
     }
   )"};
 
-  constexpr auto fsSrc{R"(
+constexpr auto fsSrc{R"(
     #version 460
 
     uniform mat4 view;
     uniform vec3 camPos;
+    uniform vec3 diffuse;
 
     in vec3 fragNormal;
     in vec3 fragPosition;
@@ -175,13 +181,11 @@ int main() {
       const float ambient = 0.1;
 
       vec3 lights[6];
-      lights[0] = vec3( 0, 3,  0);
+      lights[0] = vec3( 1, 3,  -4);
       
       vec3 v = camPos - fragPosition;
       float camDist = length(v);
       v /= camDist;
-
-      vec3 diffuse = vec3(1, 0, 0);
 
       vec3 color = ambient * diffuse;
 
@@ -199,7 +203,7 @@ int main() {
         const float alpha = 50.0;
         float s = pow(max(dot(normal, h), 0.0), alpha);
 
-        const float intensity = 20;
+        const float intensity = 50;
 
         color += min(invd * invd, 1.0) * intensity * (d * diffuse + s);
       }
@@ -208,6 +212,7 @@ int main() {
     }
   )"};
 
+auto setupProgram() {
   auto vs = glCreateShader(GL_VERTEX_SHADER);
   glShaderSource(vs, 1, &vsSrc, nullptr);
   glCompileShader(vs);
@@ -226,11 +231,173 @@ int main() {
 
   glUseProgram(program);
 
+  glEnable(GL_DEPTH_TEST);
+
+  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+  glClearColor(0.1, 0.1, 0.1, 1);
+
+  // glCullFace(GL_FRONT);
+  // glEnable(GL_CULL_FACE);
+
+  return program;
+}
+
+void drawMesh(const TriangleMesh& mesh) {
+  // Create and bind buffers
+  GLuint vbos[2];
+  glGenBuffers(2, vbos);
+
+  // Vertex positions
+  glBindBuffer(GL_ARRAY_BUFFER, vbos[0]);
+  glBufferData(GL_ARRAY_BUFFER, mesh.vertices.size() * sizeof(glm::vec3),
+               mesh.vertices.data(), GL_STATIC_DRAW);
+
+  // Vertex normals
+  glBindBuffer(GL_ARRAY_BUFFER, vbos[1]);
+  glBufferData(GL_ARRAY_BUFFER, mesh.normals.size() * sizeof(glm::vec3),
+               mesh.normals.data(), GL_STATIC_DRAW);
+
+  GLuint vao;
+  glCreateVertexArrays(1, &vao);
+  glBindVertexArray(vao);
+  glBindBuffer(GL_ARRAY_BUFFER, vbos[0]);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+  glEnableVertexAttribArray(0);
+  glBindBuffer(GL_ARRAY_BUFFER, vbos[1]);
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
+  glEnableVertexAttribArray(1);
+
+  // Index buffer
+  GLuint ebo;
+  glGenBuffers(1, &ebo);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+               mesh.triangles.size() * sizeof(glm::uvec3),
+               mesh.triangles.data(), GL_STATIC_DRAW);
+
+  // Draw the mesh
+  glDrawElements(GL_TRIANGLES, 3 * mesh.triangles.size(), GL_UNSIGNED_INT,
+                 nullptr);
+
+  // Cleanup
+  glDisableVertexAttribArray(0);
+  glDisableVertexAttribArray(1);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+  glDeleteBuffers(2, vbos);
+  glDeleteBuffers(1, &ebo);
+  glDeleteVertexArrays(1, &vao);
+}
+
+TriangleMesh generateAABBTriangleMesh(const glm::vec3& min,
+                                      const glm::vec3& max) {
+  TriangleMesh mesh;
+
+  // Define the 8 corners of the AABB
+  glm::vec3 v0 = {min.x, min.y, min.z};
+  glm::vec3 v1 = {min.x, min.y, max.z};
+  glm::vec3 v2 = {max.x, min.y, max.z};
+  glm::vec3 v3 = {max.x, min.y, min.z};
+  glm::vec3 v4 = {min.x, max.y, min.z};
+  glm::vec3 v5 = {min.x, max.y, max.z};
+  glm::vec3 v6 = {max.x, max.y, max.z};
+  glm::vec3 v7 = {max.x, max.y, min.z};
+
+  // Add vertices for each face (flat shading requires duplication)
+  mesh.vertices = {
+      v0, v1, v2, v3,  // Bottom face
+      v4, v5, v6, v7,  // Top face
+      v0, v1, v5, v4,  // Front face
+      v2, v3, v7, v6,  // Back face
+      v0, v4, v7, v3,  // Left face
+      v1, v2, v6, v5   // Right face
+  };
+
+  // Add normals for each face (flat shading requires one normal per vertex)
+  glm::vec3 nBottom = {0.0f, -1.0f, 0.0f};
+  glm::vec3 nTop = {0.0f, 1.0f, 0.0f};
+  glm::vec3 nFront = {0.0f, 0.0f, 1.0f};
+  glm::vec3 nBack = {0.0f, 0.0f, -1.0f};
+  glm::vec3 nLeft = {-1.0f, 0.0f, 0.0f};
+  glm::vec3 nRight = {1.0f, 0.0f, 0.0f};
+
+  mesh.normals = {
+      nBottom, nBottom, nBottom, nBottom,  // Bottom face
+      nTop,    nTop,    nTop,    nTop,     // Top face
+      nFront,  nFront,  nFront,  nFront,   // Front face
+      nBack,   nBack,   nBack,   nBack,    // Back face
+      nLeft,   nLeft,   nLeft,   nLeft,    // Left face
+      nRight,  nRight,  nRight,  nRight    // Right face
+  };
+
+  // Add triangles (indices)
+  mesh.triangles = {
+      {0, 1, 2},    {2, 3, 0},     // Bottom face
+      {6, 5, 4},    {4, 7, 6},     // Top face
+      {8, 9, 10},   {8, 10, 11},   // Front face
+      {14, 13, 12}, {15, 14, 12},  // Back face
+      {16, 17, 18}, {16, 18, 19},  // Left face
+      {20, 21, 22}, {20, 22, 23}   // Right face
+  };
+
+  return mesh;
+}
+
+int main() {
+  constexpr size_t w{1600}, h{900};
+  Window window{w, h, "Computer Graphics Intro"};
+
+  TriangleMesh mesh;
+
+  std::vector<glm::vec3> ctrlPts;
+  ctrlPts.push_back({0, 1, 0});
+  ctrlPts.push_back({1, 0, 0});
+  ctrlPts.push_back({2, 0, 0});
+  ctrlPts.push_back({3, 1, 0});
+
+  ctrlPts.push_back({0, 0, -1});
+  ctrlPts.push_back({1, 2, -1});
+  ctrlPts.push_back({2, 2, -1});
+  ctrlPts.push_back({3, 0, -1});
+
+  ctrlPts.push_back({0, 0, -2});
+  ctrlPts.push_back({1, 2, -2});
+  ctrlPts.push_back({2, 2, -2});
+  ctrlPts.push_back({3, 0, -2});
+
+  ctrlPts.push_back({0, 1, -3});
+  ctrlPts.push_back({1, 0, -3});
+  ctrlPts.push_back({2, 0, -3});
+  ctrlPts.push_back({3, 1, -3});
+
+  for (auto& ctrlPt : ctrlPts) ctrlPt += glm::vec3{-1.5, 0, -1.5};
+
+  mesh = tessellateBezierPatch(ctrlPts, 512);
+
+  std::vector<TriangleMesh> boxMeshes;
+
+  float u{};
+  float v{};
+  auto n{16};
+  auto incr{1.0f / n};
+  for (int i{}; i < n; ++i, u += incr, v = 0) {
+    for (int j{}; j < n; ++j, v += incr) {
+      auto box{getBoxFromBezierPatch(ctrlPts, {u, u + incr}, {v, v + incr})};
+      boxMeshes.push_back(generateAABBTriangleMesh(box.min, box.max));
+    }
+  }
+
+  auto program = setupProgram();
+
   auto viewLoc = glGetUniformLocation(program, "view");
   auto projLoc = glGetUniformLocation(program, "proj");
   auto camPosLoc = glGetUniformLocation(program, "camPos");
+  auto diffuseLoc = glGetUniformLocation(program, "diffuse");
 
-  auto camTrs = glm::inverse(glm::lookAt(glm::vec3{0, 0.5, 1}, {}, {0, 1, 0}));
+  auto camTrs =
+      glm::inverse(glm::lookAt(glm::vec3{0, 3, 2}, {0, 2, 0}, {0, 1, 0}));
 
   {
     auto view = glm::inverse(camTrs);
@@ -238,25 +405,16 @@ int main() {
     glUniform3fv(camPosLoc, 1, &camTrs[3].x);
   }
   auto proj =
-      glm::perspective(glm::radians(74.0f), 16.0f / 9.0f, 0.01f, 100.0f);
+      glm::perspective(glm::radians(40.0f), 16.0f / 9.0f, 0.01f, 100.0f);
   glUniformMatrix4fv(projLoc, 1, GL_FALSE, &proj[0].x);
-
-  glEnable(GL_DEPTH_TEST);
-  glPointSize(10);
-
-  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-  glfwSwapInterval(1);
-
-  glClearColor(0.1, 0.1, 0.1, 1);
-
-  glCullFace(GL_FRONT);
-  glEnable(GL_CULL_FACE);
 
   bool wtcUpdated = false;
 
   float dt = 0;
 
   window.show();
+
+  glm::vec3 diffuse;
 
   while (!window.shouldClose()) {
     auto start = std::chrono::steady_clock::now();
@@ -318,8 +476,13 @@ int main() {
       }
     }
 
-    glDrawElements(GL_TRIANGLES, 3 * mesh.triangles.size(), GL_UNSIGNED_INT,
-                   nullptr);
+    diffuse = {1, 0, 0};
+    glUniform3fv(diffuseLoc, 1, &diffuse.x);
+    drawMesh(mesh);
+
+    diffuse = {0, 1, 1};
+    glUniform3fv(diffuseLoc, 1, &diffuse.x);
+    for (auto& boxMesh : boxMeshes) drawMesh(boxMesh);
 
     window.swapBuffers();
     window.pollEvents();

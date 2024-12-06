@@ -2,14 +2,13 @@
 
 Window::Window(size_t width, size_t height, const char *title)
     : _width{width}, _height{height} {
-  if (!glfwInit())
-    throw std::runtime_error{"GLFW could not be initialized"};
+  if (!glfwInit()) throw std::runtime_error{"GLFW could not be initialized"};
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
   glfwWindowHint(GLFW_SAMPLES, 8);
-  glfwSwapInterval(0);
+  glfwSwapInterval(1);
   _window = glfwCreateWindow(GLsizei(width), GLsizei(height), title, nullptr,
                              nullptr);
   if (!_window) {
@@ -29,15 +28,14 @@ Window::Window(size_t width, size_t height, const char *title)
                               glViewport(0, 0, width, height);
                             });
 
-  //glfwSetFramebufferSizeCallback(_window,
-  //                               [](GLFWwindow *window, int width, int height) {
-  //                                 glViewport(0, 0, width, height);
-  //                               });
+  // glfwSetFramebufferSizeCallback(_window,
+  //                                [](GLFWwindow *window, int width, int
+  //                                height) {
+  //                                  glViewport(0, 0, width, height);
+  //                                });
 }
 
-Window::~Window() {
-  glfwTerminate();
-}
+Window::~Window() { glfwTerminate(); }
 
 size_t Window::width() const {
   int w, h;
