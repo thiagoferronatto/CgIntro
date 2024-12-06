@@ -53,6 +53,10 @@ struct TriangleMesh {
   std::vector<glm::vec3> vertices;
   std::vector<glm::vec3> normals;
   std::vector<glm::uvec3> triangles;
+
+  // OpenGL stuff
+  GLuint vbos[2]{};
+  GLuint ebo{};
 };
 
 struct AxisAlignedBox {
@@ -169,6 +173,7 @@ constexpr auto fsSrc{R"(
     uniform mat4 view;
     uniform vec3 camPos;
     uniform vec3 diffuse;
+    uniform int shade;
 
     in vec3 fragNormal;
     in vec3 fragPosition;
@@ -176,6 +181,11 @@ constexpr auto fsSrc{R"(
     out vec4 fragColor;
 
     void main(void) {
+      if (shade == 0) {
+        fragColor = vec4(diffuse, 0.1);
+        return;
+      }
+
       vec3 normal = normalize(fragNormal);
 
       const float ambient = 0.1;
@@ -195,15 +205,14 @@ constexpr auto fsSrc{R"(
         vec3 l = lPos - fragPosition;
         float lightDist = length(l);
         l /= lightDist;
-        float invd = 1.0 / (camDist + lightDist);
-        float d = 0.5 * dot(normal, l) + 0.5;
-        d *= d;
+        float invd = 1.0 /  lightDist;
+        float d = max(dot(normal, l), 0);
 
         vec3 h = normalize(v + l);
-        const float alpha = 50.0;
+        const float alpha = 50;
         float s = pow(max(dot(normal, h), 0.0), alpha);
 
-        const float intensity = 50;
+        const float intensity = 5;
 
         color += min(invd * invd, 1.0) * intensity * (d * diffuse + s);
       }
@@ -237,58 +246,40 @@ auto setupProgram() {
 
   glClearColor(0.1, 0.1, 0.1, 1);
 
-  // glCullFace(GL_FRONT);
-  // glEnable(GL_CULL_FACE);
-
   return program;
 }
 
-void drawMesh(const TriangleMesh& mesh) {
-  // Create and bind buffers
-  GLuint vbos[2];
-  glGenBuffers(2, vbos);
+GLuint vao{};
+void drawMesh(TriangleMesh& mesh) {
+  if (!mesh.vbos[0] || !mesh.vbos[1] || !mesh.ebo) {
+    glDeleteBuffers(2, mesh.vbos);
+    glDeleteBuffers(1, &mesh.ebo);
+    glGenBuffers(2, mesh.vbos);
+    glBindBuffer(GL_ARRAY_BUFFER, mesh.vbos[0]);
+    glBufferData(GL_ARRAY_BUFFER, mesh.vertices.size() * sizeof(glm::vec3),
+                 mesh.vertices.data(), GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, mesh.vbos[1]);
+    glBufferData(GL_ARRAY_BUFFER, mesh.normals.size() * sizeof(glm::vec3),
+                 mesh.normals.data(), GL_STATIC_DRAW);
+    glGenBuffers(1, &mesh.ebo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
+                 mesh.triangles.size() * sizeof(glm::uvec3),
+                 mesh.triangles.data(), GL_STATIC_DRAW);
+  }
 
-  // Vertex positions
-  glBindBuffer(GL_ARRAY_BUFFER, vbos[0]);
-  glBufferData(GL_ARRAY_BUFFER, mesh.vertices.size() * sizeof(glm::vec3),
-               mesh.vertices.data(), GL_STATIC_DRAW);
-
-  // Vertex normals
-  glBindBuffer(GL_ARRAY_BUFFER, vbos[1]);
-  glBufferData(GL_ARRAY_BUFFER, mesh.normals.size() * sizeof(glm::vec3),
-               mesh.normals.data(), GL_STATIC_DRAW);
-
-  GLuint vao;
-  glCreateVertexArrays(1, &vao);
+  if (!vao) glCreateVertexArrays(1, &vao);
   glBindVertexArray(vao);
-  glBindBuffer(GL_ARRAY_BUFFER, vbos[0]);
+  glBindBuffer(GL_ARRAY_BUFFER, mesh.vbos[0]);
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
   glEnableVertexAttribArray(0);
-  glBindBuffer(GL_ARRAY_BUFFER, vbos[1]);
+  glBindBuffer(GL_ARRAY_BUFFER, mesh.vbos[1]);
   glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
   glEnableVertexAttribArray(1);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.ebo);
 
-  // Index buffer
-  GLuint ebo;
-  glGenBuffers(1, &ebo);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-               mesh.triangles.size() * sizeof(glm::uvec3),
-               mesh.triangles.data(), GL_STATIC_DRAW);
-
-  // Draw the mesh
   glDrawElements(GL_TRIANGLES, 3 * mesh.triangles.size(), GL_UNSIGNED_INT,
                  nullptr);
-
-  // Cleanup
-  glDisableVertexAttribArray(0);
-  glDisableVertexAttribArray(1);
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-  glDeleteBuffers(2, vbos);
-  glDeleteBuffers(1, &ebo);
-  glDeleteVertexArrays(1, &vao);
 }
 
 TriangleMesh generateAABBTriangleMesh(const glm::vec3& min,
@@ -309,19 +300,19 @@ TriangleMesh generateAABBTriangleMesh(const glm::vec3& min,
   mesh.vertices = {
       v0, v1, v2, v3,  // Bottom face
       v4, v5, v6, v7,  // Top face
-      v0, v1, v5, v4,  // Front face
-      v2, v3, v7, v6,  // Back face
-      v0, v4, v7, v3,  // Left face
-      v1, v2, v6, v5   // Right face
+      v1, v2, v6, v5,  // Front face
+      v0, v4, v7, v3,  // Back face
+      v0, v1, v5, v4,  // Left face
+      v2, v3, v7, v6   // Right face
   };
 
   // Add normals for each face (flat shading requires one normal per vertex)
-  glm::vec3 nBottom = {0.0f, -1.0f, 0.0f};
-  glm::vec3 nTop = {0.0f, 1.0f, 0.0f};
-  glm::vec3 nFront = {0.0f, 0.0f, 1.0f};
-  glm::vec3 nBack = {0.0f, 0.0f, -1.0f};
-  glm::vec3 nLeft = {-1.0f, 0.0f, 0.0f};
-  glm::vec3 nRight = {1.0f, 0.0f, 0.0f};
+  glm::vec3 nBottom = {0, -1, 0};
+  glm::vec3 nTop = {0, 1, 0};
+  glm::vec3 nFront = {0, 0, 1};
+  glm::vec3 nBack = {0, 0, -1};
+  glm::vec3 nLeft = {-1, 0, 0};
+  glm::vec3 nRight = {1, 0, 0};
 
   mesh.normals = {
       nBottom, nBottom, nBottom, nBottom,  // Bottom face
@@ -335,7 +326,7 @@ TriangleMesh generateAABBTriangleMesh(const glm::vec3& min,
   // Add triangles (indices)
   mesh.triangles = {
       {0, 1, 2},    {2, 3, 0},     // Bottom face
-      {6, 5, 4},    {4, 7, 6},     // Top face
+      {4, 5, 6},    {6, 7, 4},     // Top face
       {8, 9, 10},   {8, 10, 11},   // Front face
       {14, 13, 12}, {15, 14, 12},  // Back face
       {16, 17, 18}, {16, 18, 19},  // Left face
@@ -358,13 +349,13 @@ int main() {
   ctrlPts.push_back({3, 1, 0});
 
   ctrlPts.push_back({0, 0, -1});
-  ctrlPts.push_back({1, 2, -1});
-  ctrlPts.push_back({2, 2, -1});
+  ctrlPts.push_back({1, 5, -1});
+  ctrlPts.push_back({2, -5, -1});
   ctrlPts.push_back({3, 0, -1});
 
   ctrlPts.push_back({0, 0, -2});
-  ctrlPts.push_back({1, 2, -2});
-  ctrlPts.push_back({2, 2, -2});
+  ctrlPts.push_back({1, -5, -2});
+  ctrlPts.push_back({2, 5, -2});
   ctrlPts.push_back({3, 0, -2});
 
   ctrlPts.push_back({0, 1, -3});
@@ -395,6 +386,7 @@ int main() {
   auto projLoc = glGetUniformLocation(program, "proj");
   auto camPosLoc = glGetUniformLocation(program, "camPos");
   auto diffuseLoc = glGetUniformLocation(program, "diffuse");
+  auto shadeLoc = glGetUniformLocation(program, "shade");
 
   auto camTrs =
       glm::inverse(glm::lookAt(glm::vec3{0, 3, 2}, {0, 2, 0}, {0, 1, 0}));
@@ -415,6 +407,8 @@ int main() {
   window.show();
 
   glm::vec3 diffuse;
+
+  glUniform1i(shadeLoc, 1);
 
   while (!window.shouldClose()) {
     auto start = std::chrono::steady_clock::now();
@@ -482,7 +476,7 @@ int main() {
 
     diffuse = {0, 1, 1};
     glUniform3fv(diffuseLoc, 1, &diffuse.x);
-    for (auto& boxMesh : boxMeshes) drawMesh(boxMesh);
+    // for (auto& boxMesh : boxMeshes) drawMesh(boxMesh);
 
     window.swapBuffers();
     window.pollEvents();

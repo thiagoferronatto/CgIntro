@@ -8,7 +8,6 @@ Window::Window(size_t width, size_t height, const char *title)
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
   glfwWindowHint(GLFW_SAMPLES, 8);
-  glfwSwapInterval(1);
   _window = glfwCreateWindow(GLsizei(width), GLsizei(height), title, nullptr,
                              nullptr);
   if (!_window) {
@@ -28,11 +27,7 @@ Window::Window(size_t width, size_t height, const char *title)
                               glViewport(0, 0, width, height);
                             });
 
-  // glfwSetFramebufferSizeCallback(_window,
-  //                                [](GLFWwindow *window, int width, int
-  //                                height) {
-  //                                  glViewport(0, 0, width, height);
-  //                                });
+  glfwSwapInterval(1);
 }
 
 Window::~Window() { glfwTerminate(); }
