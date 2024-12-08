@@ -148,6 +148,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="include\gl_util.hpp" />
+    <ClInclude Include="include\libaffa\aa.h" />
+    <ClInclude Include="include\libaffa\aa_aaf.h" />
+    <ClInclude Include="include\libaffa\aa_interval.h" />
+    <ClInclude Include="include\libaffa\aa_rounding.h" />
+    <ClInclude Include="include\libaffa\aa_util.h" />
     <ClInclude Include="include\window.hpp" />
   </ItemGroup>
   <ItemGroup>
@@ -159,6 +164,12 @@
     <ClCompile Include="dependencies\imgui\imgui_impl_opengl3.cpp" />
     <ClCompile Include="dependencies\imgui\imgui_tables.cpp" />
     <ClCompile Include="dependencies\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="src\libaffa\aa_aafapprox.cpp" />
+    <ClCompile Include="src\libaffa\aa_aafarithm.cpp" />
+    <ClCompile Include="src\libaffa\aa_aafcommon.cpp" />
+    <ClCompile Include="src\libaffa\aa_aaftrigo.cpp" />
+    <ClCompile Include="src\libaffa\aa_interval.cpp" />
+    <ClCompile Include="src\libaffa\aa_rounding.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\window.cpp" />
   </ItemGroup>

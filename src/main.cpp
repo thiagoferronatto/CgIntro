@@ -8,46 +8,16 @@
 #include "gl_util.hpp"
 #include "glm/ext.hpp"
 #include "glm/glm.hpp"
+#include "libaffa/aa.h"
 #include "window.hpp"
 
-// Rudimentary interval arithmetic implementation
-struct Interval {
-  Interval() = default;
-  Interval(float a_, float b_) : a{a_}, b{b_} {}
-  Interval(float x) : a{x}, b{x} {}
+#define USE_AA_INSTEAD_OF_IA
 
-  float a{};
-  float b{};
-};
-
-Interval operator+(const Interval& i0, const Interval& i1) {
-  return {i0.a + i1.a, i0.b + i1.b};
-}
-
-Interval operator+(const Interval& i0, float x) { return i0 + Interval{x, x}; }
-
-Interval operator+(float x, const Interval& i0) { return i0 + x; }
-
-Interval operator-(const Interval& i0, const Interval& i1) {
-  return {i0.a - i1.b, i0.b - i1.a};
-}
-
-Interval operator-(const Interval& i0, float x) { return i0 - Interval{x, x}; }
-
-Interval operator*(const Interval& i0, const Interval& i1) {
-  return {glm::min(i0.a * i1.a, i0.a * i1.b, i0.b * i1.a, i0.b * i1.b),
-          glm::max(i0.a * i1.a, i0.a * i1.b, i0.b * i1.a, i0.b * i1.b)};
-}
-
-Interval operator-(float x, const Interval& i0) {
-  return (i0 * Interval{-1, -1}) + x;
-}
-
-Interval operator*(const Interval& i0, float x) { return i0 * Interval{x, x}; }
-
-Interval operator*(float x, const Interval& i0) { return i0 * x; }
-
-using iavec3 = glm::tvec3<Interval>;
+#ifdef USE_AA_INSTEAD_OF_IA
+using Type = AAF;
+#else
+using Type = interval;
+#endif
 
 struct TriangleMesh {
   std::vector<glm::vec3> vertices;
@@ -66,32 +36,47 @@ struct AxisAlignedBox {
 
 using AAB = AxisAlignedBox;
 
-auto getBoxFromBezierPatch(auto&& ctrlPts, const Interval& u,
-                           const Interval& v) {
-  Interval B[4];
-  B[0] = B[3] = {1, 1};
-  B[1] = B[2] = {3, 3};
+auto getBoxFromBezierPatch(auto&& ctrlPts, const Type& u, const Type& v) {
+  Type B[4];
+  B[0] = B[3] = 1;
+  B[1] = B[2] = 3;
 
   auto u2 = u * u, u3 = u2 * u;
-  auto uc = 1 - u, uc2 = uc * uc, uc3 = uc2 * uc;
+  auto uc = Type{1} - u, uc2 = uc * uc, uc3 = uc2 * uc;
   auto v2 = v * v, v3 = v2 * v;
-  auto vc = 1 - v, vc2 = vc * vc, vc3 = vc2 * vc;
-  Interval U[4]{{1, 1}, u, u2, u3};
-  Interval UC[4]{{1, 1}, uc, uc2, uc3};
-  Interval V[4]{{1, 1}, v, v2, v3};
-  Interval VC[4]{{1, 1}, vc, vc2, vc3};
+  auto vc = Type{1} - v, vc2 = vc * vc, vc3 = vc2 * vc;
+  Type U[4]{1, u, u2, u3};
+  Type UC[4]{1, uc, uc2, uc3};
+  Type V[4]{1, v, v2, v3};
+  Type VC[4]{1, vc, vc2, vc3};
 
-  iavec3 s{{}, {}, {}};
+  Type xhat;
+  Type yhat;
+  Type zhat;
   for (int i = 0; i < 4; ++i) {
     auto BU = B[i] * U[i] * UC[3 - i];
     for (int j = 0; j < 4; ++j) {
       auto BV = B[j] * V[j] * VC[3 - j];
       auto p = ctrlPts[4 * i + j];
-      s = s + BU * BV * iavec3{p};
+      auto BUBV = BU * BV;
+      xhat = xhat + BUBV * p.x;
+      yhat = yhat + BUBV * p.y;
+      zhat = zhat + BUBV * p.z;
     }
   }
 
-  return AAB{{s.x.a, s.y.a, s.z.a}, {s.x.b, s.y.b, s.z.b}};
+#ifdef USE_AA_INSTEAD_OF_IA
+  auto xi{xhat.convert()};
+  auto yi{yhat.convert()};
+  auto zi{zhat.convert()};
+#else
+  auto xi{xhat};
+  auto yi{yhat};
+  auto zi{zhat};
+#endif
+
+  return AAB{{xi.left(), yi.left(), zi.left()},
+             {xi.right(), yi.right(), zi.right()}};
 }
 
 auto tessellateBezierPatch(auto&& controlPoints, unsigned level) {
@@ -349,13 +334,13 @@ int main() {
   ctrlPts.push_back({3, 1, 0});
 
   ctrlPts.push_back({0, 0, -1});
-  ctrlPts.push_back({1, 5, -1});
-  ctrlPts.push_back({2, -5, -1});
+  ctrlPts.push_back({1, 2, -1});
+  ctrlPts.push_back({2, 2, -1});
   ctrlPts.push_back({3, 0, -1});
 
   ctrlPts.push_back({0, 0, -2});
-  ctrlPts.push_back({1, -5, -2});
-  ctrlPts.push_back({2, 5, -2});
+  ctrlPts.push_back({1, 2, -2});
+  ctrlPts.push_back({2, 2, -2});
   ctrlPts.push_back({3, 0, -2});
 
   ctrlPts.push_back({0, 1, -3});
@@ -375,7 +360,8 @@ int main() {
   auto incr{1.0f / n};
   for (int i{}; i < n; ++i, u += incr, v = 0) {
     for (int j{}; j < n; ++j, v += incr) {
-      auto box{getBoxFromBezierPatch(ctrlPts, {u, u + incr}, {v, v + incr})};
+      auto box{getBoxFromBezierPatch(ctrlPts, interval{u, u + incr},
+                                     interval{v, v + incr})};
       boxMeshes.push_back(generateAABBTriangleMesh(box.min, box.max));
     }
   }
@@ -476,7 +462,7 @@ int main() {
 
     diffuse = {0, 1, 1};
     glUniform3fv(diffuseLoc, 1, &diffuse.x);
-    // for (auto& boxMesh : boxMeshes) drawMesh(boxMesh);
+    for (auto& boxMesh : boxMeshes) drawMesh(boxMesh);
 
     window.swapBuffers();
     window.pollEvents();
