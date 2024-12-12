@@ -11,7 +11,7 @@
 #include "libaffa/aa.h"
 #include "window.hpp"
 
-#define USE_AA_INSTEAD_OF_IA
+// #define USE_AA_INSTEAD_OF_IA
 
 #ifdef USE_AA_INSTEAD_OF_IA
 using Type = AAF;
@@ -267,8 +267,7 @@ void drawMesh(TriangleMesh& mesh) {
                  nullptr);
 }
 
-TriangleMesh generateAABBTriangleMesh(const glm::vec3& min,
-                                      const glm::vec3& max) {
+TriangleMesh getMeshFromBox(const glm::vec3& min, const glm::vec3& max) {
   TriangleMesh mesh;
 
   // Define the 8 corners of the AABB
@@ -321,6 +320,66 @@ TriangleMesh generateAABBTriangleMesh(const glm::vec3& min,
   return mesh;
 }
 
+TriangleMesh getMeshFromBezierPatchControlPoints(auto&& ctrlPts) {
+  TriangleMesh mesh;
+  for (auto&& ctrlPt : ctrlPts) mesh.vertices.push_back(ctrlPt);
+
+  auto& p = mesh.vertices;
+  auto& n = mesh.normals;
+
+  n.push_back(glm::cross(p[1] - p[0], p[4] - p[0]));
+  n.push_back(3.0f * p[1] - p[0] - p[2] - p[5]);
+  n.push_back(3.0f * p[2] - p[1] - p[3] - p[6]);
+  n.push_back(glm::cross(p[7] - p[3], p[2] - p[3]));
+
+  n.push_back(3.0f * p[4] - p[0] - p[5] - p[8]);
+  n.push_back(4.0f * p[5] - p[1] - p[4] - p[6] - p[9]);
+  n.push_back(4.0f * p[6] - p[2] - p[5] - p[7] - p[10]);
+  n.push_back(3.0f * p[7] - p[3] - p[6] - p[11]);
+
+  n.push_back(3.0f * p[8] - p[4] - p[9] - p[12]);
+  n.push_back(4.0f * p[9] - p[5] - p[8] - p[10] - p[13]);
+  n.push_back(4.0f * p[10] - p[6] - p[9] - p[11] - p[14]);
+  n.push_back(3.0f * p[11] - p[7] - p[10] - p[15]);
+
+  n.push_back(glm::cross(p[8] - p[12], p[13] - p[12]));
+  n.push_back(3.0f * p[13] - p[9] - p[12] - p[14]);
+  n.push_back(3.0f * p[14] - p[10] - p[13] - p[15]);
+  n.push_back(glm::cross(p[14] - p[15], p[11] - p[15]));
+
+  mesh.triangles.push_back({0, 1, 5});
+  mesh.triangles.push_back({5, 4, 0});
+  mesh.triangles.push_back({1, 2, 6});
+  mesh.triangles.push_back({6, 5, 1});
+  mesh.triangles.push_back({2, 3, 7});
+  mesh.triangles.push_back({7, 6, 2});
+
+  mesh.triangles.push_back({4, 5, 9});
+  mesh.triangles.push_back({9, 8, 4});
+  mesh.triangles.push_back({5, 6, 10});
+  mesh.triangles.push_back({10, 9, 5});
+  mesh.triangles.push_back({6, 7, 11});
+  mesh.triangles.push_back({11, 10, 6});
+
+  mesh.triangles.push_back({8, 9, 13});
+  mesh.triangles.push_back({13, 12, 8});
+  mesh.triangles.push_back({9, 10, 14});
+  mesh.triangles.push_back({14, 13, 9});
+  mesh.triangles.push_back({10, 11, 15});
+  mesh.triangles.push_back({15, 14, 10});
+
+  return mesh;
+}
+
+AAB getBoxFromPatchControlPoints(auto&& ctrlPts) {
+  AAB box;
+  for (auto&& ctrlPt : ctrlPts) {
+    box.min = glm::min(box.min, ctrlPt);
+    box.max = glm::max(box.min, ctrlPt);
+  }
+  return box;
+}
+
 int main() {
   constexpr size_t w{1600}, h{900};
   Window window{w, h, "Computer Graphics Intro"};
@@ -350,21 +409,87 @@ int main() {
 
   for (auto& ctrlPt : ctrlPts) ctrlPt += glm::vec3{-1.5, 0, -1.5};
 
-  mesh = tessellateBezierPatch(ctrlPts, 512);
+  mesh = tessellateBezierPatch(ctrlPts, 64);
+
+  auto mesh2 = getMeshFromBezierPatchControlPoints(ctrlPts);
+
+#if 1
 
   std::vector<TriangleMesh> boxMeshes;
+  std::vector<AAB> boxes;
 
-  float u{};
-  float v{};
-  auto n{16};
-  auto incr{1.0f / n};
-  for (int i{}; i < n; ++i, u += incr, v = 0) {
-    for (int j{}; j < n; ++j, v += incr) {
-      auto box{getBoxFromBezierPatch(ctrlPts, interval{u, u + incr},
-                                     interval{v, v + incr})};
-      boxMeshes.push_back(generateAABBTriangleMesh(box.min, box.max));
+  constexpr int n{1000};
+
+  std::vector<double> times;
+  for (int i{}; i < n; ++i) {
+    // if (i % 100 == 0) std::print("{} done\n", i);
+
+    using namespace std::chrono;
+
+    auto start{steady_clock::now()};
+    float u{};
+    float v{};
+    auto n{16};
+    auto incr{1.0f / n};
+    for (int i{}; i < n; ++i, u += incr, v = 0) {
+      for (int j{}; j < n; ++j, v += incr) {
+        auto box{getBoxFromBezierPatch(ctrlPts, interval{u, u + incr},
+                                       interval{v, v + incr})};
+        boxes.push_back(box);
+        // boxMeshes.push_back(getMeshFromBox(box.min, box.max));
+      }
     }
+    auto end{steady_clock::now()};
+    auto elapsed{duration_cast<microseconds>(end - start).count()};
+    auto elapsed_seconds{1e-6 * elapsed};
+    times.push_back(elapsed_seconds);
   }
+
+  std::print("ia_times = [");
+  for (auto time : times) std::print("{}, ", time);
+  std::print("]\n");
+
+  times.clear();
+  std::vector<TriangleMesh> meshes;
+  for (int i{}; i < n; ++i) {
+    // if (i % 100 == 0) std::print("{} done\n", i);
+
+    using namespace std::chrono;
+
+    auto start{steady_clock::now()};
+    meshes.push_back(tessellateBezierPatch(ctrlPts, 64));
+    auto end{steady_clock::now()};
+    auto elapsed{duration_cast<microseconds>(end - start).count()};
+    auto elapsed_seconds{1e-6 * elapsed};
+    times.push_back(elapsed_seconds);
+  }
+
+  std::print("tess_times = [");
+  for (auto time : times) std::print("{}, ", time);
+  std::print("]\n");
+
+  times.clear();
+  boxes.clear();
+  for (int i{}; i < n; ++i) {
+    // if (i % 100 == 0) std::print("{} done\n", i);
+
+    using namespace std::chrono;
+
+    auto start{steady_clock::now()};
+    boxes.push_back(getBoxFromPatchControlPoints(ctrlPts));
+    auto end{steady_clock::now()};
+    auto elapsed{duration_cast<nanoseconds>(end - start).count()};
+    auto elapsed_seconds{1e-9 * elapsed};
+    times.push_back(elapsed_seconds);
+  }
+
+  std::print("aabb_times = [");
+  for (auto time : times) std::print("{}, ", time);
+  std::print("]\n");
+
+  return 0;
+
+#endif
 
   auto program = setupProgram();
 
@@ -383,7 +508,7 @@ int main() {
     glUniform3fv(camPosLoc, 1, &camTrs[3].x);
   }
   auto proj =
-      glm::perspective(glm::radians(40.0f), 16.0f / 9.0f, 0.01f, 100.0f);
+      glm::perspective(glm::radians(74.0f), 16.0f / 9.0f, 0.01f, 100.0f);
   glUniformMatrix4fv(projLoc, 1, GL_FALSE, &proj[0].x);
 
   bool wtcUpdated = false;
@@ -456,13 +581,18 @@ int main() {
       }
     }
 
+    glUniform1i(shadeLoc, 1);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     diffuse = {1, 0, 0};
     glUniform3fv(diffuseLoc, 1, &diffuse.x);
     drawMesh(mesh);
 
+    glUniform1i(shadeLoc, 0);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     diffuse = {0, 1, 1};
     glUniform3fv(diffuseLoc, 1, &diffuse.x);
-    for (auto& boxMesh : boxMeshes) drawMesh(boxMesh);
+    drawMesh(mesh2);
+    // for (auto& boxMesh : boxMeshes) drawMesh(boxMesh);
 
     window.swapBuffers();
     window.pollEvents();

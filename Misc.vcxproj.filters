@@ -30,6 +30,21 @@
     <ClInclude Include="include\gl_util.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="include\libaffa\aa.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\libaffa\aa_aaf.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\libaffa\aa_interval.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\libaffa\aa_rounding.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\libaffa\aa_util.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp">
@@ -61,6 +76,24 @@
     </ClCompile>
     <ClCompile Include="dependencies\glad\src\glad.c">
       <Filter>Dependencies</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libaffa\aa_aafapprox.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libaffa\aa_aafarithm.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libaffa\aa_aafcommon.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libaffa\aa_aaftrigo.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libaffa\aa_interval.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libaffa\aa_rounding.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
