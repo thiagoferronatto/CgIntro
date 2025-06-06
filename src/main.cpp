@@ -5,168 +5,13 @@
 #include <ranges>
 #include <vector>
 
+#include "bezier_patch.hpp"
 #include "gl_util.hpp"
 #include "glm/ext.hpp"
 #include "glm/glm.hpp"
 #include "libaffa/aa.h"
+#include "types.hpp"
 #include "window.hpp"
-
-// int and float typedefs
-#if 1
-using i8 = signed char;
-using u8 = unsigned char;
-using i16 = signed short;
-using u16 = unsigned short;
-using i32 = signed int;
-using u32 = unsigned int;
-using i64 = signed long long;
-using u64 = unsigned long long;
-using f32 = float;
-using f64 = double;
-using f128 = long double;
-#endif
-
-#define USE_AA_INSTEAD_OF_IA
-
-#ifdef USE_AA_INSTEAD_OF_IA
-using Type = AAF;
-#else
-using Type = interval;
-#endif
-
-struct TriangleMesh {
-  std::vector<glm::vec3> vertices;
-  std::vector<glm::vec3> normals;
-  std::vector<glm::uvec3> triangles;
-
-  // OpenGL stuff
-  GLuint vbos[2]{};
-  GLuint ebo{};
-};
-
-struct AxisAlignedBox {
-  glm::vec3 min;
-  glm::vec3 max;
-};
-
-using AAB = AxisAlignedBox;
-
-auto getBoxFromBezierPatch(auto &&ctrlPts, const Type &u, const Type &v) {
-  Type B[4];
-  B[0] = B[3] = 1;
-  B[1] = B[2] = 3;
-
-  auto u2 = u * u, u3 = u2 * u;
-  auto uc = Type{1} - u, uc2 = uc * uc, uc3 = uc2 * uc;
-  auto v2 = v * v, v3 = v2 * v;
-  auto vc = Type{1} - v, vc2 = vc * vc, vc3 = vc2 * vc;
-  Type U[4]{1, u, u2, u3};
-  Type UC[4]{1, uc, uc2, uc3};
-  Type V[4]{1, v, v2, v3};
-  Type VC[4]{1, vc, vc2, vc3};
-
-  Type xhat;
-  Type yhat;
-  Type zhat;
-  for (i32 i{}; i < 4; ++i) {
-    auto BU = B[i] * U[i] * UC[3 - i];
-    for (i32 j{}; j < 4; ++j) {
-      auto BV = B[j] * V[j] * VC[3 - j];
-      auto p = ctrlPts[4 * i + j];
-      auto BUBV = BU * BV;
-      xhat = xhat + BUBV * p.x;
-      yhat = yhat + BUBV * p.y;
-      zhat = zhat + BUBV * p.z;
-    }
-  }
-
-#ifdef USE_AA_INSTEAD_OF_IA
-
-#if 0 // trying to get the zonotope
-  xhat.aafprint();
-  yhat.aafprint();
-  zhat.aafprint();
-
-  f64 xsum{};
-  for (u32 i{}, len{xhat.get_length()}; i < len; ++i)
-    xsum += xhat.get_coeff(i);
-
-  f64 xtrunc[5]{
-      xhat.get_center(), // x
-      xhat.get_coeff(0), // eps_0
-      xhat.get_coeff(1), // eps_1
-      xhat.get_coeff(2), // eps_2
-      xsum               // eps_3 + eps_4 + ... + eps_n
-  };
-#endif
-
-  auto xi{xhat.convert()};
-  auto yi{yhat.convert()};
-  auto zi{zhat.convert()};
-#else
-  auto xi{xhat};
-  auto yi{yhat};
-  auto zi{zhat};
-#endif
-
-  return AAB{{xi.left(), yi.left(), zi.left()},
-             {xi.right(), yi.right(), zi.right()}};
-}
-
-auto tessellateBezierPatch(auto &&controlPoints, u32 level) {
-  TriangleMesh mesh;
-  auto stepSize{1.0f / level};
-  f32 u{};
-  f32 v{};
-
-  for (u32 i{}; i < level; ++i, u += stepSize) {
-    for (u32 j{}; j < level; ++j, v += stepSize) {
-      f32 B[4];
-      B[0] = B[3] = 1;
-      B[1] = B[2] = 3;
-
-      auto u2{u * u}, u3{u2 * u};
-      auto uc{1 - u}, uc2{uc * uc}, uc3{uc2 * uc};
-      auto v2{v * v}, v3{v2 * v};
-      auto vc{1 - v}, vc2{vc * vc}, vc3{vc2 * vc};
-      f32 U[4]{1, u, u2, u3};
-      f32 DU[4]{0, 1, 2 * u, 3 * u2};
-      f32 UC[4]{1, uc, uc2, uc3};
-      f32 DUC[4]{0, -1, 2 * u - 2, -3 * uc2};
-      f32 V[4]{1, v, v2, v3};
-      f32 DV[4]{0, 1, 2 * v, 3 * v2};
-      f32 VC[4]{1, vc, vc2, vc3};
-      f32 DVC[4]{0, -1, 2 * v - 2, -3 * vc2};
-
-      glm::vec3 s{};
-      glm::vec3 du{};
-      glm::vec3 dv{};
-      for (i32 i{}; i < 4; ++i) {
-        auto BU{B[i] * U[i] * UC[3 - i]};
-        auto DBU{B[i] * (DU[i] * UC[3 - i] + U[i] * DUC[3 - i])};
-        for (i32 j{}; j < 4; ++j) {
-          auto BV{B[j] * V[j] * VC[3 - j]};
-          auto DBV{B[j] * (DV[j] * VC[3 - j] + V[j] * DVC[3 - j])};
-          auto p{controlPoints[4 * i + j]};
-          s += BU * BV * p;
-          du += DBU * BV * p;
-          dv += BU * DBV * p;
-        }
-      }
-      mesh.vertices.push_back(std::move(s));
-      auto vertexNormal{glm::normalize(glm::cross(dv, du))};
-      mesh.normals.push_back(std::move(vertexNormal));
-    }
-    v = 0;
-  }
-  for (u32 i{level}, end{level * level}; i < end; ++i) {
-    if (i % level == level - 1)
-      continue;
-    mesh.triangles.push_back({i - level, i, i + 1});
-    mesh.triangles.push_back({i + 1, i - level + 1, i - level});
-  }
-  return mesh;
-}
 
 constexpr auto vsSrc{R"(
     #version 460
@@ -211,7 +56,8 @@ constexpr auto fsSrc{R"(
       const float ambient = 0.1;
 
       vec3 lights[6];
-      lights[0] = vec3( 1, 3,  -4);
+      lights[0] = vec3(0, 5, 0);
+      lights[1] = vec3(0, -5, 0);
       
       vec3 v = camPos - fragPosition;
       float camDist = length(v);
@@ -219,10 +65,11 @@ constexpr auto fsSrc{R"(
 
       vec3 color = ambient * diffuse;
 
-      for (int i = 0; i < 1; ++i) {
+      for (int i = 0; i < 2; ++i) {
         vec3 lPos = lights[i];
         
         vec3 l = lPos - fragPosition;
+        //l = vec3(0, 1, 0);
         float lightDist = length(l);
         l /= lightDist;
         float invd = 1.0 /  lightDist;
@@ -234,7 +81,7 @@ constexpr auto fsSrc{R"(
         const float alpha = 100;
         float s = pow(max(dot(normal, h), 0.0), alpha);
 
-        const float intensity = 5;
+        const float intensity = 10;
 
         color += min(invd * invd, 1.0) * intensity * (d * diffuse + s);
       }
@@ -266,220 +113,68 @@ auto setupProgram() {
 
   glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-  glClearColor(0.1, 0.1, 0.1, 1);
+  glClearColor(0, 0, 0, 1);
 
   return program;
-}
-
-GLuint vao{};
-void drawMesh(TriangleMesh &mesh) {
-  if (!mesh.vbos[0] || !mesh.vbos[1] || !mesh.ebo) {
-    glDeleteBuffers(2, mesh.vbos);
-    glDeleteBuffers(1, &mesh.ebo);
-    glGenBuffers(2, mesh.vbos);
-    glBindBuffer(GL_ARRAY_BUFFER, mesh.vbos[0]);
-    glBufferData(GL_ARRAY_BUFFER, mesh.vertices.size() * sizeof(glm::vec3),
-                 mesh.vertices.data(), GL_STATIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, mesh.vbos[1]);
-    glBufferData(GL_ARRAY_BUFFER, mesh.normals.size() * sizeof(glm::vec3),
-                 mesh.normals.data(), GL_STATIC_DRAW);
-    glGenBuffers(1, &mesh.ebo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-                 mesh.triangles.size() * sizeof(glm::uvec3),
-                 mesh.triangles.data(), GL_STATIC_DRAW);
-  }
-
-  if (!vao)
-    glCreateVertexArrays(1, &vao);
-  glBindVertexArray(vao);
-  glBindBuffer(GL_ARRAY_BUFFER, mesh.vbos[0]);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-  glEnableVertexAttribArray(0);
-  glBindBuffer(GL_ARRAY_BUFFER, mesh.vbos[1]);
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, nullptr);
-  glEnableVertexAttribArray(1);
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh.ebo);
-
-  glDrawElements(GL_TRIANGLES, 3 * mesh.triangles.size(), GL_UNSIGNED_INT,
-                 nullptr);
-}
-
-TriangleMesh getMeshFromBox(const glm::vec3 &min, const glm::vec3 &max) {
-  TriangleMesh mesh;
-
-  // Define the 8 corners of the AABB
-  glm::vec3 v0 = {min.x, min.y, min.z};
-  glm::vec3 v1 = {min.x, min.y, max.z};
-  glm::vec3 v2 = {max.x, min.y, max.z};
-  glm::vec3 v3 = {max.x, min.y, min.z};
-  glm::vec3 v4 = {min.x, max.y, min.z};
-  glm::vec3 v5 = {min.x, max.y, max.z};
-  glm::vec3 v6 = {max.x, max.y, max.z};
-  glm::vec3 v7 = {max.x, max.y, min.z};
-
-  // Add vertices for each face (flat shading requires duplication)
-  mesh.vertices = {
-      v0, v1, v2, v3, // Bottom face
-      v4, v5, v6, v7, // Top face
-      v1, v2, v6, v5, // Front face
-      v0, v4, v7, v3, // Back face
-      v0, v1, v5, v4, // Left face
-      v2, v3, v7, v6  // Right face
-  };
-
-  // Add normals for each face (flat shading requires one normal per vertex)
-  glm::vec3 nBottom = {0, -1, 0};
-  glm::vec3 nTop = {0, 1, 0};
-  glm::vec3 nFront = {0, 0, 1};
-  glm::vec3 nBack = {0, 0, -1};
-  glm::vec3 nLeft = {-1, 0, 0};
-  glm::vec3 nRight = {1, 0, 0};
-
-  mesh.normals = {
-      nBottom, nBottom, nBottom, nBottom, // Bottom face
-      nTop,    nTop,    nTop,    nTop,    // Top face
-      nFront,  nFront,  nFront,  nFront,  // Front face
-      nBack,   nBack,   nBack,   nBack,   // Back face
-      nLeft,   nLeft,   nLeft,   nLeft,   // Left face
-      nRight,  nRight,  nRight,  nRight   // Right face
-  };
-
-  // Add triangles (indices)
-  mesh.triangles = {
-      {0, 1, 2},    {2, 3, 0},    // Bottom face
-      {4, 5, 6},    {6, 7, 4},    // Top face
-      {8, 9, 10},   {8, 10, 11},  // Front face
-      {14, 13, 12}, {15, 14, 12}, // Back face
-      {16, 17, 18}, {16, 18, 19}, // Left face
-      {20, 21, 22}, {20, 22, 23}  // Right face
-  };
-
-  return mesh;
-}
-
-TriangleMesh getMeshFromBezierPatchControlPoints(auto &&ctrlPts) {
-  TriangleMesh mesh;
-  for (auto &&ctrlPt : ctrlPts)
-    mesh.vertices.push_back(ctrlPt);
-
-  auto &p{mesh.vertices};
-  auto &n{mesh.normals};
-
-  n.push_back(glm::cross(p[1] - p[0], p[4] - p[0]));
-  n.push_back(3.0f * p[1] - p[0] - p[2] - p[5]);
-  n.push_back(3.0f * p[2] - p[1] - p[3] - p[6]);
-  n.push_back(glm::cross(p[7] - p[3], p[2] - p[3]));
-
-  n.push_back(3.0f * p[4] - p[0] - p[5] - p[8]);
-  n.push_back(4.0f * p[5] - p[1] - p[4] - p[6] - p[9]);
-  n.push_back(4.0f * p[6] - p[2] - p[5] - p[7] - p[10]);
-  n.push_back(3.0f * p[7] - p[3] - p[6] - p[11]);
-
-  n.push_back(3.0f * p[8] - p[4] - p[9] - p[12]);
-  n.push_back(4.0f * p[9] - p[5] - p[8] - p[10] - p[13]);
-  n.push_back(4.0f * p[10] - p[6] - p[9] - p[11] - p[14]);
-  n.push_back(3.0f * p[11] - p[7] - p[10] - p[15]);
-
-  n.push_back(glm::cross(p[8] - p[12], p[13] - p[12]));
-  n.push_back(3.0f * p[13] - p[9] - p[12] - p[14]);
-  n.push_back(3.0f * p[14] - p[10] - p[13] - p[15]);
-  n.push_back(glm::cross(p[14] - p[15], p[11] - p[15]));
-
-  mesh.triangles.push_back({0, 1, 5});
-  mesh.triangles.push_back({5, 4, 0});
-  mesh.triangles.push_back({1, 2, 6});
-  mesh.triangles.push_back({6, 5, 1});
-  mesh.triangles.push_back({2, 3, 7});
-  mesh.triangles.push_back({7, 6, 2});
-
-  mesh.triangles.push_back({4, 5, 9});
-  mesh.triangles.push_back({9, 8, 4});
-  mesh.triangles.push_back({5, 6, 10});
-  mesh.triangles.push_back({10, 9, 5});
-  mesh.triangles.push_back({6, 7, 11});
-  mesh.triangles.push_back({11, 10, 6});
-
-  mesh.triangles.push_back({8, 9, 13});
-  mesh.triangles.push_back({13, 12, 8});
-  mesh.triangles.push_back({9, 10, 14});
-  mesh.triangles.push_back({14, 13, 9});
-  mesh.triangles.push_back({10, 11, 15});
-  mesh.triangles.push_back({15, 14, 10});
-
-  return mesh;
-}
-
-AAB getBoxFromPatchControlPoints(auto &&ctrlPts) {
-  AAB box;
-  for (auto &&ctrlPt : ctrlPts) {
-    box.min = glm::min(box.min, ctrlPt);
-    box.max = glm::max(box.min, ctrlPt);
-  }
-  return box;
 }
 
 int main() {
   constexpr u64 w{1600}, h{900};
   Window window{w, h, "Surface tinkering"};
 
-  TriangleMesh patchMesh;
+  BezierPatch::PointCloud controlPoints1 = {
+      {1.4, 0, 0.5}, {0, 0, 3}, {3, 0, 3}, {1.6, 0, 0.5},
+      {1.4, 1, 0.5}, {0, 1, 3}, {3, 1, 3}, {1.6, 1, 0.5},
+      {1.4, 2, 0.5}, {0, 2, 3}, {3, 2, 3}, {1.6, 2, 0.5},
+      {1.4, 3, 0.5}, {0, 3, 3}, {3, 3, 3}, {1.6, 3, 0.5}};
 
-  std::vector<glm::vec3> ctrlPts;
-  /* Control points */ {
-    ctrlPts.push_back({0, 1, 0});
-    ctrlPts.push_back({1, -1, 0});
-    ctrlPts.push_back({2, -1, 0});
-    ctrlPts.push_back({3, 1, 0});
+  BezierPatch::PointCloud controlPoints = {
+      {0, 0, 0}, {0, 3, 0}, {3, 3, 0}, {3, 0, 0}, {1, 0, 1}, {0, 2, 1},
+      {3, 2, 1}, {2, 0, 1}, {1, 0, 2}, {0, 2, 2}, {3, 2, 2}, {2, 0, 2},
+      {0, 0, 3}, {0, 3, 3}, {3, 3, 3}, {3, 0, 3}};
 
-    ctrlPts.push_back({0, -1, -1});
-    ctrlPts.push_back({1, 2, -1});
-    ctrlPts.push_back({2, 2, -1});
-    ctrlPts.push_back({3, -1, -1});
+  {
+    controlPoints.clear();
 
-    ctrlPts.push_back({0, -1, -2});
-    ctrlPts.push_back({1, 2, -2});
-    ctrlPts.push_back({2, 2, -2});
-    ctrlPts.push_back({3, -1, -2});
+    controlPoints.push_back({0, 1, 0});
+    controlPoints.push_back({1, -1, 0});
+    controlPoints.push_back({2, -1, 0});
+    controlPoints.push_back({3, 1, 0});
 
-    ctrlPts.push_back({0, 1, -3});
-    ctrlPts.push_back({1, -1, -3});
-    ctrlPts.push_back({2, -1, -3});
-    ctrlPts.push_back({3, 1, -3});
+    controlPoints.push_back({0, -1, -1});
+    controlPoints.push_back({1, 2, -1});
+    controlPoints.push_back({2, 2, -1});
+    controlPoints.push_back({3, -1, -1});
 
-    for (auto &ctrlPt : ctrlPts) {
-      static constexpr auto m4id{glm::identity<glm::mat4>()};
-      static constexpr auto pi{glm::pi<float>()};
-      static constexpr glm::vec3 up{0, 1, 0};
-      auto matrix{glm::rotate(m4id, 0.25f * pi, up)};
-      ctrlPt = matrix * glm::vec4{ctrlPt, 1};
-      ctrlPt += glm::vec3{-1.5, 0, -1.5};
-    }
+    controlPoints.push_back({0, -1, -2});
+    controlPoints.push_back({1, 2, -2});
+    controlPoints.push_back({2, 2, -2});
+    controlPoints.push_back({3, -1, -2});
+
+    controlPoints.push_back({0, 1, -3});
+    controlPoints.push_back({1, -1, -3});
+    controlPoints.push_back({2, -1, -3});
+    controlPoints.push_back({3, 1, -3});
   }
 
-  patchMesh = tessellateBezierPatch(ctrlPts, 64);
+  for (auto &ctrlPt : controlPoints) {
+    static constexpr glm::mat4 m4id = glm::identity<glm::mat4>();
+    static constexpr f32 pi = glm::pi<f32>();
+    static constexpr glm::vec3 up = {0, 1, 0};
+    // auto matrix{glm::rotate(m4id, 0.125f * pi, up)};
+    // ctrlPt = matrix * glm::vec4{ctrlPt, 1};
+    ctrlPt += glm::vec3{-1.5, 0, -1.5};
+  }
 
-  std::vector<TriangleMesh> boxMeshes;
+  BezierPatch patch = std::move(controlPoints);
+  TriangleMesh patchMesh = patch.tessellate(1024);
+  // for (glm::vec3 &n : patchMesh.normals)
+  //   n *= -1;
+  auto getBoundMeshes = &BezierPatch::getHullMeshes;
 
-  AAF asdf;
-
-  // AABB generation
-  auto generateAabbs{[&](auto &meshVector, i32 subdCount) {
-    meshVector.clear();
-    float u{};
-    float v{};
-    auto incr{1.0f / subdCount};
-    for (i32 i{}; i < subdCount; ++i, u += incr, v = 0) {
-      for (i32 j{}; j < subdCount; ++j, v += incr) {
-        auto box{getBoxFromBezierPatch(ctrlPts, interval{u, u + incr},
-                                       interval{v, v + incr})};
-        meshVector.push_back(getMeshFromBox(box.min, box.max));
-      }
-    }
-  }};
-
-  i32 subdCount{32};
-  generateAabbs(boxMeshes, subdCount);
+  i32 subdCount = 32;
+  u64 noiseTerms = 5;
+  auto boxMeshes{(patch.*getBoundMeshes)(subdCount)};
 
   auto program{setupProgram()};
 
@@ -505,6 +200,8 @@ int main() {
   bool pWasPressedLastFrame{};
   bool upWasPressedLastFrame{};
   bool downWasPressedLastFrame{};
+  bool leftWasPressedLastFrame{};
+  bool rightWasPressedLastFrame{};
   float dt{};
 
   glm::vec3 diffuse;
@@ -518,7 +215,7 @@ int main() {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     /* User input */ {
-      constexpr float factor{5};
+      constexpr f32 factor{4};
 
       glm::vec3 globalY{glm::inverse(camTrs) * glm::vec4{0, 1, 0, 0}};
 
@@ -582,10 +279,12 @@ int main() {
 
       if (window.keyIsPressed(GLFW_KEY_UP)) {
         if (!upWasPressedLastFrame) {
-          subdCount += 5;
+          std::cout << "[INFO] Resolution increased from " << subdCount;
+          subdCount += 1;
           if (subdCount > 128)
             subdCount = 128;
-          generateAabbs(boxMeshes, subdCount);
+          std::cout << " to " << subdCount << '\n';
+          boxMeshes = std::move((patch.*getBoundMeshes)(subdCount));
         }
         upWasPressedLastFrame = true;
       } else {
@@ -594,14 +293,46 @@ int main() {
 
       if (window.keyIsPressed(GLFW_KEY_DOWN)) {
         if (!downWasPressedLastFrame) {
-          subdCount -= 5;
+          std::cout << "[INFO] Resolution decreased from " << subdCount;
+          subdCount -= 1;
           if (subdCount < 1)
             subdCount = 2;
-          generateAabbs(boxMeshes, subdCount);
+          std::cout << " to " << subdCount << '\n';
+          boxMeshes = std::move((patch.*getBoundMeshes)(subdCount));
         }
         downWasPressedLastFrame = true;
       } else {
         downWasPressedLastFrame = false;
+      }
+
+      if (window.keyIsPressed(GLFW_KEY_LEFT)) {
+        if (!leftWasPressedLastFrame) {
+          noiseTerms -= 1;
+          if (noiseTerms < 4)
+            noiseTerms = 4;
+          boxMeshes = std::move((patch.*getBoundMeshes)(subdCount));
+          std::cout << "[INFO] Noise-term count decreased from " << noiseTerms
+                    << " to " << (noiseTerms - 1) << " ("
+                    << (1 << (noiseTerms - 1)) << " vertices)\n";
+        }
+        leftWasPressedLastFrame = true;
+      } else {
+        leftWasPressedLastFrame = false;
+      }
+
+      if (window.keyIsPressed(GLFW_KEY_RIGHT)) {
+        if (!rightWasPressedLastFrame) {
+          noiseTerms += 1;
+          if (noiseTerms > 30)
+            noiseTerms = 30;
+          boxMeshes = std::move((patch.*getBoundMeshes)(subdCount));
+          std::cout << "[INFO] Noise-term count increased from "
+                    << (noiseTerms - 2) << " to " << (noiseTerms - 1) << " ("
+                    << (1 << (noiseTerms - 1)) << " vertices)\n";
+        }
+        rightWasPressedLastFrame = true;
+      } else {
+        rightWasPressedLastFrame = false;
       }
 
       if (window.keyIsPressed(GLFW_KEY_ESCAPE))
@@ -616,13 +347,13 @@ int main() {
     }
 
     // Patch visualization
-    diffuse = {1, 0, 0};
+    diffuse = {0, 1, 1};
     glUniform3fv(diffuseLoc, 1, &diffuse.x);
-    drawMesh(patchMesh);
+    patchMesh.draw();
 
     // AABB visualization
     if (shouldShowAabbs) {
-      diffuse = {0, 1, 1};
+      diffuse = {1, 0, 0};
       glUniform3fv(diffuseLoc, 1, &diffuse.x);
 
       // This is heavily unoptimized and should not be used for purposes other
@@ -631,7 +362,7 @@ int main() {
       // transformation matrices. Also, batch drawing would improve
       // performance, maybe by using something like glMultiDrawElements.
       for (auto &boxMesh : boxMeshes)
-        drawMesh(boxMesh);
+        boxMesh.draw();
     }
 
     window.swapBuffers();

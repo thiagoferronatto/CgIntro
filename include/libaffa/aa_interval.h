@@ -30,10 +30,10 @@
 // the class is used by our AAF class
 
 class interval {
- private:
+private:
   double lo, hi;
 
- public:
+public:
   interval();
   interval(double x);
   interval(double l, double h);
@@ -57,6 +57,8 @@ class interval {
 
   bool straddles_zero() const;
 };
+
+using Interval = interval;
 
 std::ostream &operator<<(std::ostream &s, const interval &I);
 interval min_trigo(const interval &I);
@@ -83,7 +85,7 @@ inline double interval::width() const { return (hi - lo); }
 
 inline bool interval::straddles_zero() const { return (lo <= 0) && (hi >= 0); }
 
-#endif  // AA_INTERVAL_H
+#endif // AA_INTERVAL_H
 /*
   Local Variables:
   mode:c++

@@ -22,35 +22,86 @@
     <Filter Include="Miscellaneous">
       <UniqueIdentifier>{1fdd5b5b-0d33-4a96-b881-83b69f8a266b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Dependencies\quickhull">
+      <UniqueIdentifier>{952c09f8-af46-4236-90aa-23c3fe8aaa81}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Dependencies\libaffa">
+      <UniqueIdentifier>{90527d9d-7c52-499b-9509-6a9da3c16771}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Utility">
+      <UniqueIdentifier>{c998c646-a1cd-473e-91b6-67aec798361b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Utility">
+      <UniqueIdentifier>{449b6114-4836-45d3-bee2-66be7aa15544}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="include\window.hpp">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="dependencies\quickhull\ConvexHull.hpp">
+      <Filter>Dependencies\quickhull</Filter>
     </ClInclude>
-    <ClInclude Include="include\gl_util.hpp">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="dependencies\quickhull\HalfEdgeMesh.hpp">
+      <Filter>Dependencies\quickhull</Filter>
     </ClInclude>
-    <ClInclude Include="include\libaffa\aa.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="dependencies\quickhull\MathUtils.hpp">
+      <Filter>Dependencies\quickhull</Filter>
     </ClInclude>
-    <ClInclude Include="include\libaffa\aa_aaf.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="dependencies\quickhull\QuickHull.hpp">
+      <Filter>Dependencies\quickhull</Filter>
     </ClInclude>
-    <ClInclude Include="include\libaffa\aa_interval.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="dependencies\quickhull\Structs\Mesh.hpp">
+      <Filter>Dependencies\quickhull</Filter>
     </ClInclude>
-    <ClInclude Include="include\libaffa\aa_rounding.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="dependencies\quickhull\Structs\Plane.hpp">
+      <Filter>Dependencies\quickhull</Filter>
+    </ClInclude>
+    <ClInclude Include="dependencies\quickhull\Structs\Pool.hpp">
+      <Filter>Dependencies\quickhull</Filter>
+    </ClInclude>
+    <ClInclude Include="dependencies\quickhull\Structs\Ray.hpp">
+      <Filter>Dependencies\quickhull</Filter>
+    </ClInclude>
+    <ClInclude Include="dependencies\quickhull\Structs\Vector3.hpp">
+      <Filter>Dependencies\quickhull</Filter>
+    </ClInclude>
+    <ClInclude Include="dependencies\quickhull\Structs\VertexDataSource.hpp">
+      <Filter>Dependencies\quickhull</Filter>
     </ClInclude>
     <ClInclude Include="include\libaffa\aa_util.h">
+      <Filter>Dependencies\libaffa</Filter>
+    </ClInclude>
+    <ClInclude Include="include\libaffa\aa.h">
+      <Filter>Dependencies\libaffa</Filter>
+    </ClInclude>
+    <ClInclude Include="include\libaffa\aa_aaf.h">
+      <Filter>Dependencies\libaffa</Filter>
+    </ClInclude>
+    <ClInclude Include="include\libaffa\aa_interval.h">
+      <Filter>Dependencies\libaffa</Filter>
+    </ClInclude>
+    <ClInclude Include="include\libaffa\aa_rounding.h">
+      <Filter>Dependencies\libaffa</Filter>
+    </ClInclude>
+    <ClInclude Include="include\window.hpp">
+      <Filter>Header Files\Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="include\gl_util.hpp">
+      <Filter>Header Files\Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="include\types.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\bezier_patch.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\triangle_mesh.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\aabb.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\window.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="dependencies\imgui\imgui.cpp">
@@ -77,23 +128,29 @@
     <ClCompile Include="dependencies\glad\src\glad.c">
       <Filter>Dependencies</Filter>
     </ClCompile>
+    <ClCompile Include="dependencies\quickhull\QuickHull.cpp">
+      <Filter>Dependencies\quickhull</Filter>
+    </ClCompile>
     <ClCompile Include="src\libaffa\aa_aafapprox.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Dependencies\libaffa</Filter>
     </ClCompile>
     <ClCompile Include="src\libaffa\aa_aafarithm.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Dependencies\libaffa</Filter>
     </ClCompile>
     <ClCompile Include="src\libaffa\aa_aafcommon.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Dependencies\libaffa</Filter>
     </ClCompile>
     <ClCompile Include="src\libaffa\aa_aaftrigo.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Dependencies\libaffa</Filter>
     </ClCompile>
     <ClCompile Include="src\libaffa\aa_interval.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Dependencies\libaffa</Filter>
     </ClCompile>
     <ClCompile Include="src\libaffa\aa_rounding.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Dependencies\libaffa</Filter>
+    </ClCompile>
+    <ClCompile Include="src\window.cpp">
+      <Filter>Source Files\Utility</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -111,6 +111,7 @@
       <AdditionalIncludeDirectories>include;dependencies;dependencies/glad/include;dependencies/glm;dependencies/imgui;</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpplatest</LanguageStandard>
       <FloatingPointModel>Strict</FloatingPointModel>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -148,12 +149,26 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="dependencies\quickhull\ConvexHull.hpp" />
+    <ClInclude Include="dependencies\quickhull\HalfEdgeMesh.hpp" />
+    <ClInclude Include="dependencies\quickhull\MathUtils.hpp" />
+    <ClInclude Include="dependencies\quickhull\QuickHull.hpp" />
+    <ClInclude Include="dependencies\quickhull\Structs\Mesh.hpp" />
+    <ClInclude Include="dependencies\quickhull\Structs\Plane.hpp" />
+    <ClInclude Include="dependencies\quickhull\Structs\Pool.hpp" />
+    <ClInclude Include="dependencies\quickhull\Structs\Ray.hpp" />
+    <ClInclude Include="dependencies\quickhull\Structs\Vector3.hpp" />
+    <ClInclude Include="dependencies\quickhull\Structs\VertexDataSource.hpp" />
+    <ClInclude Include="include\aabb.hpp" />
+    <ClInclude Include="include\bezier_patch.hpp" />
     <ClInclude Include="include\gl_util.hpp" />
     <ClInclude Include="include\libaffa\aa.h" />
     <ClInclude Include="include\libaffa\aa_aaf.h" />
     <ClInclude Include="include\libaffa\aa_interval.h" />
     <ClInclude Include="include\libaffa\aa_rounding.h" />
     <ClInclude Include="include\libaffa\aa_util.h" />
+    <ClInclude Include="include\triangle_mesh.hpp" />
+    <ClInclude Include="include\types.hpp" />
     <ClInclude Include="include\window.hpp" />
   </ItemGroup>
   <ItemGroup>
@@ -165,6 +180,7 @@
     <ClCompile Include="dependencies\imgui\imgui_impl_opengl3.cpp" />
     <ClCompile Include="dependencies\imgui\imgui_tables.cpp" />
     <ClCompile Include="dependencies\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="dependencies\quickhull\QuickHull.cpp" />
     <ClCompile Include="src\libaffa\aa_aafapprox.cpp" />
     <ClCompile Include="src\libaffa\aa_aafarithm.cpp" />
     <ClCompile Include="src\libaffa\aa_aafcommon.cpp" />
