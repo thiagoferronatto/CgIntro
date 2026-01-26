@@ -17,6 +17,11 @@ public:
   BezierPatch(PointCloud &&controlPoints)
       : _controlPoints{std::move(controlPoints)} {
     assert(_controlPoints.size() == 16);
+    ++_patchCount;
+  }
+
+  bool operator==(const BezierPatch &other) const {
+    return _patchId == other._patchId;
   }
 
   AAB getSubpatchAabb(const Type &u, const Type &v) const {
@@ -63,33 +68,37 @@ public:
                {xi.right(), yi.right(), zi.right()}};
   }
 
-  std::vector<TriangleMesh> getAabbMeshes(i32 subdCount, u64 _) {
+  std::vector<TriangleMesh>
+  getAabbMeshes(i32 subdCount, std::vector<AAB> *boxes = nullptr) const {
     std::vector<TriangleMesh> meshArray(subdCount * subdCount);
-    float u{};
-    float v{};
+    float u = 0, v = 0;
     auto incr{1.0f / subdCount};
+    u64 counter = 0;
     for (i32 i{}; i < subdCount; ++i, u += incr, v = 0) {
       for (i32 j{}; j < subdCount; ++j, v += incr) {
         auto box{getSubpatchAabb(Interval{u, u + incr}, Interval{v, v + incr})};
-        meshArray.push_back(box.getMesh());
+        boxes->push_back(box);
+        meshArray[counter++] = box.getMesh();
       }
     }
     return meshArray;
   }
 
 #if USING_AA
-  std::vector<TriangleMesh> getHullMeshes(i32 subdCount) {
+  std::vector<TriangleMesh> getHullMeshes(
+      i32 subdCount,
+      std::vector<quickhull::ConvexHull<f64>> *hulls = nullptr) const {
     std::vector<TriangleMesh> meshArray(subdCount * subdCount);
     float u{};
     float v{};
     auto incr{1.0f / subdCount};
+    u64 counter = 0;
     for (i32 i{}; i < subdCount; ++i, u += incr, v = 0) {
       for (i32 j{}; j < subdCount; ++j, v += incr) {
-        // if (i < 3 || i >= 5 || j < 3 || j >= 5)
-        //   continue;
         auto mesh{
             getSubpatchHullMesh(interval{u, u + incr}, interval{v, v + incr})};
-        meshArray.push_back(mesh);
+        // TODO: extract hull and insert into hulls vector
+        meshArray[counter++] = mesh;
       }
     }
     return meshArray;
@@ -139,46 +148,34 @@ public:
       zsum += std::fabs(zhat.get_coeff(i));
 
     // reduced affine forms
-    // std::vector<f32> xr, yr, zr;
-    f32 xr[6] = {}, yr[6] = {}, zr[6] = {};
-    xr[0] = xhat.get_center();
-    yr[0] = yhat.get_center();
-    zr[0] = zhat.get_center();
-    xr[1] = xhat.get_coeff(0);
-    yr[1] = yhat.get_coeff(0);
-    zr[1] = zhat.get_coeff(0);
-    xr[2] = xhat.get_coeff(1);
-    yr[2] = yhat.get_coeff(1);
-    zr[2] = zhat.get_coeff(1);
-    xr[3] = xsum;
-    yr[4] = ysum;
-    zr[5] = zsum;
+    quickhull::Vector3<f64> r[6] = {};
+    r[0] = {xhat.get_center(), yhat.get_center(), zhat.get_center()};
+    r[1] = {xhat.get_coeff(0), yhat.get_coeff(0), zhat.get_coeff(0)};
+    r[2] = {xhat.get_coeff(1), yhat.get_coeff(1), zhat.get_coeff(1)};
+    r[3].x = xsum;
+    r[4].y = ysum;
+    r[5].z = zsum;
 
-    quickhull::Vector3<f32> zonotopeVertices[32];
-
+    quickhull::Vector3<f64> vertices[32];
     for (i32 i = 0; i < 32; ++i) {
-      quickhull::Vector3<float> v = {xr[0], yr[0], zr[0]};
-      for (i32 j = 0, j1 = 1; j < 5; ++j, ++j1) {
-        if (i & (1 << j))
-          v += {xr[j1], yr[j1], zr[j1]};
-        else
-          v -= {xr[j1], yr[j1], zr[j1]};
-      }
-      zonotopeVertices[i] = v;
+      auto &v = vertices[i];
+      v = r[0];
+      for (i32 j = 0; j < 5; ++j)
+        v += (i & 1 << j ? 1.0 : -1.0) * r[j + 1];
     }
 
     // used a tiny quickhull library
-    quickhull::QuickHull<float> qh;
-    auto hull{qh.getConvexHull(zonotopeVertices, 32, true, false, 1e-6)};
+    quickhull::QuickHull<f64> qh;
+    auto hull = qh.getConvexHull(vertices, 32, true, false, DBL_EPSILON);
 
     // convex hull mesh generation for visualization
     TriangleMesh mesh;
-    auto &verts{mesh.vertices}, &norms{mesh.normals};
-    auto &trigs{mesh.triangles};
-    auto &hTrigs{hull.getIndexBuffer()};
-    auto &hVerts{hull.getVertexBuffer()};
-    for (u32 i{}; i < hTrigs.size(); i += 3) {
-      auto i0{hTrigs[i]}, i1{hTrigs[i + 1]}, i2{hTrigs[i + 2]};
+    auto &verts = mesh.vertices, &norms = mesh.normals;
+    auto &trigs = mesh.triangles;
+    auto &hTrigs = hull.getIndexBuffer();
+    auto &hVerts = hull.getVertexBuffer();
+    for (u32 i = 0; i < hTrigs.size(); i += 3) {
+      auto i0 = hTrigs[i], i1 = hTrigs[i + 1], i2 = hTrigs[i + 2];
       trigs.push_back({i, i + 1, i + 2});
 
       auto v0{hVerts[i0]}, v1{hVerts[i1]}, v2{hVerts[i2]};
@@ -186,7 +183,9 @@ public:
       verts.push_back({v1.x, v1.y, v1.z});
       verts.push_back({v2.x, v2.y, v2.z});
 
-      auto n{(hVerts[i2] - hVerts[i0]).crossProduct(hVerts[i1] - hVerts[i0])};
+      auto n{(hVerts[i2] - hVerts[i0])
+                 .crossProduct(hVerts[i1] - hVerts[i0])
+                 .getNormalized()};
       norms.push_back({n.x, n.y, n.z});
       norms.push_back({n.x, n.y, n.z});
       norms.push_back({n.x, n.y, n.z});
@@ -196,7 +195,7 @@ public:
   }
 #endif // USING_AA
 
-  TriangleMesh tessellate(u32 level) {
+  TriangleMesh tessellate(u32 level) const {
     TriangleMesh mesh;
     auto stepSize{1.0f / level};
     f32 u{};
@@ -237,7 +236,7 @@ public:
           }
         }
         mesh.vertices.push_back(std::move(s));
-        auto vertexNormal{glm::normalize(glm::cross(dv, du))};
+        auto vertexNormal{glm::normalize(glm::cross(du, dv))};
         mesh.normals.push_back(std::move(vertexNormal));
       }
       v = 0;
@@ -251,8 +250,12 @@ public:
     return mesh;
   }
 
+  auto &controlPoints() { return _controlPoints; }
+
 private:
   PointCloud _controlPoints;
+  inline static size_t _patchCount = 0;
+  size_t _patchId = _patchCount;
 };
 
 #endif // BEZIER_PATCH_HPP

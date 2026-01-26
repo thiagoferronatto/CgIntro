@@ -12,6 +12,14 @@ GLuint vao{};
 
 class TriangleMesh {
 public:
+  ~TriangleMesh() {
+    vertices.clear();
+    normals.clear();
+    triangles.clear();
+    glDeleteBuffers(2, vbos);
+    glDeleteBuffers(1, &ebo);
+  }
+
   void draw() {
     if (!vbos[0] || !vbos[1] || !ebo) {
       glDeleteBuffers(2, vbos);
