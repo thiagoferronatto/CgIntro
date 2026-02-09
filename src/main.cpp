@@ -153,6 +153,88 @@ auto setupProgram() {
   return program;
 }
 
+constexpr int maxRecDepth = 3;
+
+// use auxiliary storage type to pass in parameters without this mess
+void subdivide(
+    interval u0,         // u interval of patch 0's colliding box
+    interval v0,         // v interval of patch 0's colliding box
+    interval u1,         // u interval of patch 1's colliding box
+    interval v1,         // v interval of patch 1's colliding box
+    BezierPatch &patch0, // ref to patch0
+    BezierPatch &patch1, // ref to patch1
+    std::vector<TriangleMesh> *extraBoxes0, // for displaying the boxes
+    std::vector<TriangleMesh> *extraBoxes1, // for displaying the boxes
+    const int recursionDepth = 0            // to stop at a reasonable level
+) {
+  if (recursionDepth > maxRecDepth)
+    return;
+
+  AAB p0b[4], p1b[4];
+
+  interval p0i[4], p1i[4];
+  p0i[0] = {u0.left(), u0.mid()};
+  p0i[1] = {u0.mid(), u0.right()};
+  p0i[2] = {v0.left(), v0.mid()};
+  p0i[3] = {v0.mid(), v0.right()};
+
+  // the intervals corresponding to each new box from patch0
+  std::pair<interval, interval> bi0[4];
+  bi0[0] = {p0i[0], p0i[2]};
+  bi0[1] = {p0i[0], p0i[3]};
+  bi0[2] = {p0i[1], p0i[2]};
+  bi0[3] = {p0i[1], p0i[3]};
+
+  // generating 4 new boxes for patch0
+  p0b[0] = patch0.getSubpatchAabb(bi0[0].first, bi0[0].second);
+  p0b[1] = patch0.getSubpatchAabb(bi0[1].first, bi0[1].second);
+  p0b[2] = patch0.getSubpatchAabb(bi0[2].first, bi0[2].second);
+  p0b[3] = patch0.getSubpatchAabb(bi0[3].first, bi0[3].second);
+
+  p1i[0] = {u1.left(), u1.mid()};
+  p1i[1] = {u1.mid(), u1.right()};
+  p1i[2] = {v1.left(), v1.mid()};
+  p1i[3] = {v1.mid(), v1.right()};
+
+  // the intervals corresponding to each new box from patch1
+  std::pair<interval, interval> bi1[4];
+  bi1[0] = {p1i[0], p1i[2]};
+  bi1[1] = {p1i[0], p1i[3]};
+  bi1[2] = {p1i[1], p1i[2]};
+  bi1[3] = {p1i[1], p1i[3]};
+
+  // generating 4 new boxes for patch1
+  p1b[0] = patch1.getSubpatchAabb(bi1[0].first, bi1[0].second);
+  p1b[1] = patch1.getSubpatchAabb(bi1[1].first, bi1[1].second);
+  p1b[2] = patch1.getSubpatchAabb(bi1[2].first, bi1[2].second);
+  p1b[3] = patch1.getSubpatchAabb(bi1[3].first, bi1[3].second);
+
+  bool didOverlap = false;
+  for (int i = 0; i < 4; ++i) {
+    for (int j = 0; j < 4; ++j) {
+      if (p0b[i].overlapsWith(p1b[j])) {
+        subdivide(bi0[i].first, bi0[i].second, bi1[j].first, bi1[j].second,
+                  patch0, patch1, extraBoxes0, extraBoxes1, recursionDepth + 1);
+        didOverlap = true;
+      }
+    }
+  }
+
+  if (extraBoxes0) {
+    extraBoxes0[recursionDepth].push_back(p0b[0].getMesh());
+    extraBoxes0[recursionDepth].push_back(p0b[1].getMesh());
+    extraBoxes0[recursionDepth].push_back(p0b[2].getMesh());
+    extraBoxes0[recursionDepth].push_back(p0b[3].getMesh());
+  }
+
+  if (extraBoxes1) {
+    extraBoxes1[recursionDepth].push_back(p1b[0].getMesh());
+    extraBoxes1[recursionDepth].push_back(p1b[1].getMesh());
+    extraBoxes1[recursionDepth].push_back(p1b[2].getMesh());
+    extraBoxes1[recursionDepth].push_back(p1b[3].getMesh());
+  }
+};
+
 int main() {
   constexpr u64 w{1600}, h{900};
   Window window{w, h, "Surface tinkering"};
@@ -196,7 +278,7 @@ int main() {
   for (auto &ctrlPt : controlPoints)
     ctrlPt += glm::vec3{-1.5, 0, 1.5};
   for (auto &ctrlPt : controlPoints1)
-    ctrlPt = 0.75f * (ctrlPt + glm::vec3{-5.5, 0, -1.5});
+    ctrlPt = 0.9f * (ctrlPt + glm::vec3{-5.5, 0, -1.5});
 
   std::vector<BezierPatch> patches;
 
@@ -219,7 +301,7 @@ int main() {
 #define GET_BOUND_MESHES getAabbMeshes
 #endif
 
-  u64 subdCount = 4;
+  u64 subdCount = 8;
   // u64 noiseTerms = 5;
   std::vector<std::vector<TriangleMesh>> allBoundsMeshes(patches.size());
   std::vector<std::vector<AAB>> allBoundsBoxes(patches.size());
@@ -390,6 +472,9 @@ int main() {
                                          {74 / 255., 224 / 255., 74 / 255.}};
     constexpr auto patchColorCount = sizeof(patchColors) / sizeof(glm::vec3);
 
+    std::vector<TriangleMesh> extraBoxes0[maxRecDepth + 1];
+    std::vector<TriangleMesh> extraBoxes1[maxRecDepth + 1];
+
     // Collision
     bool didCollide = false;
     for (int i = 0, end = patches.size(); i < end; ++i) {
@@ -397,22 +482,54 @@ int main() {
         auto &patch0 = patches[i], &patch1 = patches[j];
         auto &p0Boxes = allBoundsBoxes[i], &p1Boxes = allBoundsBoxes[j];
 
-        for (int k = 0; k < p0Boxes.size(); ++k) {
-          for (int l = 0; l < p1Boxes.size(); ++l) {
+        for (int k = 0, boxCount0 = p0Boxes.size(); k < boxCount0; ++k) {
+          auto kk = k / subdCount;
+          auto k1 = k % subdCount;
+          for (int l = 0, boxCount1 = p1Boxes.size(); l < boxCount1; ++l) {
+            auto ll = l / subdCount;
+            auto l1 = l % subdCount;
             if (p0Boxes[k].overlapsWith(p1Boxes[l])) {
               // collision detected
 
               if (i == j) {
-                // self intersection, what to do?
-                boundsColor = {0, .5, 1};
+                // self intersection, what to do? nothing for now
+                // boundsColor = {0, .5, 1};
               } else {
-                // TODO: refine each of the 2 boxes into 4 smaller ones
-                // up to 32x32 (1024)
+                // TODO: refine each of the 2 boxes into 4 smaller ones up to
+                // 32x32 (1024)
+                //
+                // maybe just split the AABBs themselves into 4 (cheaper)
+                //
+                // why not use a box for the patch and avoid AA? (IMPORTANT)
+                // because AA guarantees that each box contains a part of the
+                // surface. look up literature on bounds for patches
 
-                boundsColor = {1, 0, 0};
+                // method parameters: maximum subdivision level (32x32), a least
+                // reasonable subdivision level (8x8), maximum adaptive
+                // subdivision level (32 / 4 = 8)
+
+                // next steps:
+                // [DONE] 1. implement on-the-fly adaptive subdivision process
+                //           on the CPU, wasteful if necessary.
+                //
+                //        1.1. study this properly (refer to the paper).
+                //
+                //        2. make sure that generating boxes with AA is the best
+                //           option (consider to be true for now).
+                //
+                //        3. maybe then implement an acceleration structure like
+                //           a BVH.
+
+                // change 1 to 2 if parametric space is [-1, 1] x [-1, 1]
+                const f32 s = 1.0f / subdCount; // parametric square side length
+
+                subdivide({kk * s, (kk + 1) * s}, {k1 * s, (k1 + 1) * s},
+                          {ll * s, (ll + 1) * s}, {l1 * s, (l1 + 1) * s},
+                          patch0, patch1, extraBoxes0, extraBoxes1);
+
+                // boundsColor = {1, 0, 0};
+                didCollide = true;
               }
-
-              didCollide = true;
             }
           }
         }
@@ -433,14 +550,28 @@ int main() {
         diffuse = boundsColor;
         glUniform3fv(diffuseLoc, 1, &diffuse.x);
 
-        // This is heavily unoptimized and should not be used for purposes other
-        // than visualization. Currently, each box has its own separate mesh,
-        // when they could all reference the same mesh with different
+        // This is heavily unoptimized and should not be used for purposes
+        // other than visualization. Currently, each box has its own separate
+        // mesh, when they could all reference the same mesh with different
         // transformation matrices. Also, batch drawing would improve
         // performance, maybe by using something like glMultiDrawElements.
         for (auto &bvMesh : allBoundsMeshes[i])
           bvMesh.draw();
       }
+    }
+
+    for (int i = 0; i < maxRecDepth + 1; ++i) {
+      float x = (1.0f / maxRecDepth) * i;
+      diffuse = {x, 1 - x, 0};
+      glUniform3fv(diffuseLoc, 1, &diffuse.x);
+
+      glClear(GL_DEPTH_BUFFER_BIT);
+
+      for (auto &boxMesh : extraBoxes0[i])
+        boxMesh.draw();
+
+      for (auto &boxMesh : extraBoxes1[i])
+        boxMesh.draw();
     }
 
     window.swapBuffers();
