@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <chrono>
+#include <stack>
 #include <utility>
 #include <vector>
 
@@ -155,85 +156,88 @@ auto setupProgram() {
 
 constexpr int maxRecDepth = 3;
 
-// use auxiliary storage type to pass in parameters without this mess
-void subdivide(
-    interval u0,         // u interval of patch 0's colliding box
-    interval v0,         // v interval of patch 0's colliding box
-    interval u1,         // u interval of patch 1's colliding box
-    interval v1,         // v interval of patch 1's colliding box
-    BezierPatch &patch0, // ref to patch0
-    BezierPatch &patch1, // ref to patch1
-    std::vector<TriangleMesh> *extraBoxes0, // for displaying the boxes
-    std::vector<TriangleMesh> *extraBoxes1, // for displaying the boxes
-    const int recursionDepth = 0            // to stop at a reasonable level
-) {
-  if (recursionDepth > maxRecDepth)
+using MeshArray = std::vector<TriangleMesh>;
+
+struct RecSubdArgs {
+  BezierPatch &p0; // ref to patch0
+  BezierPatch &p1; // ref to patch1
+  interval u0;     // u interval of patch 0's colliding box
+  interval v0;     // v interval of patch 0's colliding box
+  interval u1;     // u interval of patch 1's colliding box
+  interval v1;     // v interval of patch 1's colliding box
+  MeshArray *b0;   // for displaying the boxes
+  MeshArray *b1;   // for displaying the boxes
+  int depth = 0;   // to stop at a reasonable level
+};
+
+void subdivide(const RecSubdArgs &args) {
+  using IntervalPair = std::pair<interval, interval>;
+
+  // std::stack<RecSubdArgs> stack;
+  // stack.push(originalArgs);
+
+  // while (!stack.empty()) {
+  //   auto &args = stack.top();
+  //   stack.pop();
+  // }
+
+  if (args.depth > maxRecDepth)
     return;
 
-  AAB p0b[4], p1b[4];
-
   interval p0i[4], p1i[4];
-  p0i[0] = {u0.left(), u0.mid()};
-  p0i[1] = {u0.mid(), u0.right()};
-  p0i[2] = {v0.left(), v0.mid()};
-  p0i[3] = {v0.mid(), v0.right()};
+  p0i[0] = {args.u0.left(), args.u0.mid()};
+  p0i[1] = {args.u0.mid(), args.u0.right()};
+  p0i[2] = {args.v0.left(), args.v0.mid()};
+  p0i[3] = {args.v0.mid(), args.v0.right()};
 
   // the intervals corresponding to each new box from patch0
-  std::pair<interval, interval> bi0[4];
+  IntervalPair bi0[4];
   bi0[0] = {p0i[0], p0i[2]};
   bi0[1] = {p0i[0], p0i[3]};
   bi0[2] = {p0i[1], p0i[2]};
   bi0[3] = {p0i[1], p0i[3]};
 
-  // generating 4 new boxes for patch0
-  p0b[0] = patch0.getSubpatchAabb(bi0[0].first, bi0[0].second);
-  p0b[1] = patch0.getSubpatchAabb(bi0[1].first, bi0[1].second);
-  p0b[2] = patch0.getSubpatchAabb(bi0[2].first, bi0[2].second);
-  p0b[3] = patch0.getSubpatchAabb(bi0[3].first, bi0[3].second);
-
-  p1i[0] = {u1.left(), u1.mid()};
-  p1i[1] = {u1.mid(), u1.right()};
-  p1i[2] = {v1.left(), v1.mid()};
-  p1i[3] = {v1.mid(), v1.right()};
+  p1i[0] = {args.u1.left(), args.u1.mid()};
+  p1i[1] = {args.u1.mid(), args.u1.right()};
+  p1i[2] = {args.v1.left(), args.v1.mid()};
+  p1i[3] = {args.v1.mid(), args.v1.right()};
 
   // the intervals corresponding to each new box from patch1
-  std::pair<interval, interval> bi1[4];
+  IntervalPair bi1[4];
   bi1[0] = {p1i[0], p1i[2]};
   bi1[1] = {p1i[0], p1i[3]};
   bi1[2] = {p1i[1], p1i[2]};
   bi1[3] = {p1i[1], p1i[3]};
 
-  // generating 4 new boxes for patch1
-  p1b[0] = patch1.getSubpatchAabb(bi1[0].first, bi1[0].second);
-  p1b[1] = patch1.getSubpatchAabb(bi1[1].first, bi1[1].second);
-  p1b[2] = patch1.getSubpatchAabb(bi1[2].first, bi1[2].second);
-  p1b[3] = patch1.getSubpatchAabb(bi1[3].first, bi1[3].second);
-
-  bool didOverlap = false;
+  AAB p0b[4], p1b[4];
   for (int i = 0; i < 4; ++i) {
+    p0b[i] = args.p0.getSubpatchAabb(bi0[i].first, bi0[i].second);
     for (int j = 0; j < 4; ++j) {
+      p1b[j] = args.p1.getSubpatchAabb(bi1[j].first, bi1[j].second);
       if (p0b[i].overlapsWith(p1b[j])) {
-        subdivide(bi0[i].first, bi0[i].second, bi1[j].first, bi1[j].second,
-                  patch0, patch1, extraBoxes0, extraBoxes1, recursionDepth + 1);
-        didOverlap = true;
+        RecSubdArgs nextCallArgs{.p0 = args.p0,
+                                 .p1 = args.p1,
+                                 .u0 = bi0[i].first,
+                                 .v0 = bi0[i].second,
+                                 .u1 = bi1[j].first,
+                                 .v1 = bi1[j].second,
+                                 .b0 = args.b0,
+                                 .b1 = args.b1,
+                                 .depth = args.depth + 1};
+
+        subdivide(nextCallArgs);
       }
     }
   }
 
-  if (extraBoxes0) {
-    extraBoxes0[recursionDepth].push_back(p0b[0].getMesh());
-    extraBoxes0[recursionDepth].push_back(p0b[1].getMesh());
-    extraBoxes0[recursionDepth].push_back(p0b[2].getMesh());
-    extraBoxes0[recursionDepth].push_back(p0b[3].getMesh());
-  }
+  if (args.b0)
+    for (int i = 0; i < 4; ++i)
+      args.b0[args.depth].push_back(p0b[i].getMesh());
 
-  if (extraBoxes1) {
-    extraBoxes1[recursionDepth].push_back(p1b[0].getMesh());
-    extraBoxes1[recursionDepth].push_back(p1b[1].getMesh());
-    extraBoxes1[recursionDepth].push_back(p1b[2].getMesh());
-    extraBoxes1[recursionDepth].push_back(p1b[3].getMesh());
-  }
-};
+  if (args.b1)
+    for (int i = 0; i < 4; ++i)
+      args.b1[args.depth].push_back(p1b[i].getMesh());
+}
 
 int main() {
   constexpr u64 w{1600}, h{900};
@@ -278,11 +282,11 @@ int main() {
   for (auto &ctrlPt : controlPoints)
     ctrlPt += glm::vec3{-1.5, 0, 1.5};
   for (auto &ctrlPt : controlPoints1)
-    ctrlPt = 0.9f * (ctrlPt + glm::vec3{-5.5, 0, -1.5});
+    ctrlPt = 0.9f * (ctrlPt + glm::vec3{-3.5, 0, -1.5});
 
   std::vector<BezierPatch> patches;
 
-  // TODO: add all patches to the patches vector
+  // adding all patches to the patches vector
   patches.push_back(std::move(controlPoints));
   patches.push_back(std::move(controlPoints1));
 
@@ -472,8 +476,8 @@ int main() {
                                          {74 / 255., 224 / 255., 74 / 255.}};
     constexpr auto patchColorCount = sizeof(patchColors) / sizeof(glm::vec3);
 
-    std::vector<TriangleMesh> extraBoxes0[maxRecDepth + 1];
-    std::vector<TriangleMesh> extraBoxes1[maxRecDepth + 1];
+    MeshArray extraBoxes0[maxRecDepth + 1];
+    MeshArray extraBoxes1[maxRecDepth + 1];
 
     // Collision
     bool didCollide = false;
@@ -523,9 +527,17 @@ int main() {
                 // change 1 to 2 if parametric space is [-1, 1] x [-1, 1]
                 const f32 s = 1.0f / subdCount; // parametric square side length
 
-                subdivide({kk * s, (kk + 1) * s}, {k1 * s, (k1 + 1) * s},
-                          {ll * s, (ll + 1) * s}, {l1 * s, (l1 + 1) * s},
-                          patch0, patch1, extraBoxes0, extraBoxes1);
+                RecSubdArgs args{.p0 = patch0,
+                                 .p1 = patch1,
+                                 .u0 = {kk * s, (kk + 1) * s},
+                                 .v0 = {k1 * s, (k1 + 1) * s},
+                                 .u1 = {ll * s, (ll + 1) * s},
+                                 .v1 = {l1 * s, (l1 + 1) * s},
+                                 .b0 = extraBoxes0,
+                                 .b1 = extraBoxes1,
+                                 .depth = 0};
+
+                subdivide(args);
 
                 // boundsColor = {1, 0, 0};
                 didCollide = true;

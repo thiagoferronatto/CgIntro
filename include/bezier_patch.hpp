@@ -38,15 +38,13 @@ public:
     Type V[4]{1, v, v2, v3};
     Type VC[4]{1, vc, vc2, vc3};
 
-    Type xhat;
-    Type yhat;
-    Type zhat;
+    Type xhat, yhat, zhat;
     for (i32 i{}; i < 4; ++i) {
       auto BU = B[i] * U[i] * UC[3 - i];
       for (i32 j{}; j < 4; ++j) {
         auto BV = B[j] * V[j] * VC[3 - j];
-        auto p = _controlPoints[4 * i + j];
         auto BUBV = BU * BV;
+        auto &p = _controlPoints[4 * i + j];
         xhat = xhat + BUBV * p.x;
         yhat = yhat + BUBV * p.y;
         zhat = zhat + BUBV * p.z;
@@ -96,7 +94,7 @@ public:
     for (i32 i{}; i < subdCount; ++i, u += incr, v = 0) {
       for (i32 j{}; j < subdCount; ++j, v += incr) {
         auto mesh{
-            getSubpatchHullMesh(interval{u, u + incr}, interval{v, v + incr})};
+            getSubpatchHull(interval{u, u + incr}, interval{v, v + incr})};
         // TODO: extract hull and insert into hulls vector
         meshArray[counter++] = mesh;
       }
@@ -106,7 +104,7 @@ public:
 #endif // USING_AA
 
 #if USING_AA
-  TriangleMesh getSubpatchHullMesh(const Type &u, const Type &v) const {
+  TriangleMesh getSubpatchHull(const Type &u, const Type &v) const {
     // Type is an affine form
     Type xhat, yhat, zhat;
 
