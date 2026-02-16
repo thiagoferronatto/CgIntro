@@ -173,70 +173,70 @@ struct RecSubdArgs {
 void subdivide(const RecSubdArgs &args) {
   using IntervalPair = std::pair<interval, interval>;
 
-  // std::stack<RecSubdArgs> stack;
-  // stack.push(originalArgs);
+  std::stack<RecSubdArgs> stack;
+  stack.push(args);
 
-  // while (!stack.empty()) {
-  //   auto &args = stack.top();
-  //   stack.pop();
-  // }
+  while (!stack.empty()) {
+    const auto args = stack.top(); // this is a 100 byte copy. can we avoid it?
+    stack.pop();
 
-  if (args.depth > maxRecDepth)
-    return;
+    if (args.depth > maxRecDepth)
+      continue;
 
-  interval p0i[4], p1i[4];
-  p0i[0] = {args.u0.left(), args.u0.mid()};
-  p0i[1] = {args.u0.mid(), args.u0.right()};
-  p0i[2] = {args.v0.left(), args.v0.mid()};
-  p0i[3] = {args.v0.mid(), args.v0.right()};
+    interval p0i[4], p1i[4];
+    p0i[0] = {args.u0.left(), args.u0.mid()};
+    p0i[1] = {args.u0.mid(), args.u0.right()};
+    p0i[2] = {args.v0.left(), args.v0.mid()};
+    p0i[3] = {args.v0.mid(), args.v0.right()};
 
-  // the intervals corresponding to each new box from patch0
-  IntervalPair bi0[4];
-  bi0[0] = {p0i[0], p0i[2]};
-  bi0[1] = {p0i[0], p0i[3]};
-  bi0[2] = {p0i[1], p0i[2]};
-  bi0[3] = {p0i[1], p0i[3]};
+    // the intervals corresponding to each new box from patch0
+    IntervalPair bi0[4];
+    bi0[0] = {p0i[0], p0i[2]};
+    bi0[1] = {p0i[0], p0i[3]};
+    bi0[2] = {p0i[1], p0i[2]};
+    bi0[3] = {p0i[1], p0i[3]};
 
-  p1i[0] = {args.u1.left(), args.u1.mid()};
-  p1i[1] = {args.u1.mid(), args.u1.right()};
-  p1i[2] = {args.v1.left(), args.v1.mid()};
-  p1i[3] = {args.v1.mid(), args.v1.right()};
+    p1i[0] = {args.u1.left(), args.u1.mid()};
+    p1i[1] = {args.u1.mid(), args.u1.right()};
+    p1i[2] = {args.v1.left(), args.v1.mid()};
+    p1i[3] = {args.v1.mid(), args.v1.right()};
 
-  // the intervals corresponding to each new box from patch1
-  IntervalPair bi1[4];
-  bi1[0] = {p1i[0], p1i[2]};
-  bi1[1] = {p1i[0], p1i[3]};
-  bi1[2] = {p1i[1], p1i[2]};
-  bi1[3] = {p1i[1], p1i[3]};
+    // the intervals corresponding to each new box from patch1
+    IntervalPair bi1[4];
+    bi1[0] = {p1i[0], p1i[2]};
+    bi1[1] = {p1i[0], p1i[3]};
+    bi1[2] = {p1i[1], p1i[2]};
+    bi1[3] = {p1i[1], p1i[3]};
 
-  AAB p0b[4], p1b[4];
-  for (int i = 0; i < 4; ++i) {
-    p0b[i] = args.p0.getSubpatchAabb(bi0[i].first, bi0[i].second);
-    for (int j = 0; j < 4; ++j) {
-      p1b[j] = args.p1.getSubpatchAabb(bi1[j].first, bi1[j].second);
-      if (p0b[i].overlapsWith(p1b[j])) {
-        RecSubdArgs nextCallArgs{.p0 = args.p0,
-                                 .p1 = args.p1,
-                                 .u0 = bi0[i].first,
-                                 .v0 = bi0[i].second,
-                                 .u1 = bi1[j].first,
-                                 .v1 = bi1[j].second,
-                                 .b0 = args.b0,
-                                 .b1 = args.b1,
-                                 .depth = args.depth + 1};
+    AAB p0b[4], p1b[4];
+    for (int i = 0; i < 4; ++i) {
+      p0b[i] = args.p0.getSubpatchAabb(bi0[i].first, bi0[i].second);
+      for (int j = 0; j < 4; ++j) {
+        p1b[j] = args.p1.getSubpatchAabb(bi1[j].first, bi1[j].second);
+        if (p0b[i].overlapsWith(p1b[j])) {
+          RecSubdArgs nextCallArgs{.p0 = args.p0,
+                                   .p1 = args.p1,
+                                   .u0 = bi0[i].first,
+                                   .v0 = bi0[i].second,
+                                   .u1 = bi1[j].first,
+                                   .v1 = bi1[j].second,
+                                   .b0 = args.b0,
+                                   .b1 = args.b1,
+                                   .depth = args.depth + 1};
 
-        subdivide(nextCallArgs);
+          stack.push(nextCallArgs);
+        }
       }
     }
+
+    if (args.b0)
+      for (int i = 0; i < 4; ++i)
+        args.b0[args.depth].push_back(p0b[i].getMesh());
+
+    if (args.b1)
+      for (int i = 0; i < 4; ++i)
+        args.b1[args.depth].push_back(p1b[i].getMesh());
   }
-
-  if (args.b0)
-    for (int i = 0; i < 4; ++i)
-      args.b0[args.depth].push_back(p0b[i].getMesh());
-
-  if (args.b1)
-    for (int i = 0; i < 4; ++i)
-      args.b1[args.depth].push_back(p1b[i].getMesh());
 }
 
 int main() {
@@ -593,8 +593,6 @@ int main() {
     auto end{std::chrono::steady_clock::now()};
     dt = 1e-9f * (end - start).count();
   }
-
-endOfProgram:
 
   return 0;
 }
