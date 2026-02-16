@@ -61,6 +61,8 @@ public:
            (min.z <= other.max.z && max.z >= other.min.z);
   }
 
+  glm::vec3 center() const { return 0.5f * (min + max); }
+
   glm::vec3 min;
   glm::vec3 max;
 };

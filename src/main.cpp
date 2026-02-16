@@ -154,13 +154,15 @@ auto setupProgram() {
   return program;
 }
 
-constexpr int maxRecDepth = 3;
+constexpr int maxRecDepth = 4;
 
 using MeshArray = std::vector<TriangleMesh>;
 
 struct RecSubdArgs {
   BezierPatch &p0; // ref to patch0
   BezierPatch &p1; // ref to patch1
+  AAB prevB0;      // [NEW] attempt at optimization
+  AAB prevB1;      // [NEW] attempt at optimization
   interval u0;     // u interval of patch 0's colliding box
   interval v0;     // v interval of patch 0's colliding box
   interval u1;     // u interval of patch 1's colliding box
@@ -177,7 +179,7 @@ void subdivide(const RecSubdArgs &args) {
   stack.push(args);
 
   while (!stack.empty()) {
-    const auto args = stack.top(); // this is a 100 byte copy. can we avoid it?
+    const auto args = stack.top(); // this is a 150+ byte copy. can we avoid it?
     stack.pop();
 
     if (args.depth > maxRecDepth)
@@ -209,13 +211,35 @@ void subdivide(const RecSubdArgs &args) {
     bi1[3] = {p1i[1], p1i[3]};
 
     AAB p0b[4], p1b[4];
+
+    if (2 * args.depth > maxRecDepth) {
+      auto &pb0 = args.prevB0;
+      auto c0 = pb0.center();
+      p0b[0] = {pb0.min, {c0.x, pb0.max.y, c0.z}};
+      p0b[1] = {{c0.x, pb0.min.y, pb0.min.z}, {pb0.max.x, pb0.max.y, c0.z}};
+      p0b[2] = {{pb0.min.x, pb0.min.y, c0.z}, {c0.x, pb0.max.y, pb0.max.z}};
+      p0b[3] = {{c0.x, pb0.min.y, c0.z}, pb0.max};
+
+      auto &pb1 = args.prevB1;
+      auto c1 = pb1.center();
+      p1b[0] = {pb1.min, {c1.x, pb1.max.y, c1.z}};
+      p1b[1] = {{c1.x, pb1.min.y, pb1.min.z}, {pb1.max.x, pb1.max.y, c1.z}};
+      p1b[2] = {{pb1.min.x, pb1.min.y, c1.z}, {c1.x, pb1.max.y, pb1.max.z}};
+      p1b[3] = {{c1.x, pb1.min.y, c1.z}, pb1.max};
+    } else {
+      for (int i = 0; i < 4; ++i) {
+        p0b[i] = args.p0.getSubpatchAabb(bi0[i].first, bi0[i].second);
+        p1b[i] = args.p1.getSubpatchAabb(bi1[i].first, bi1[i].second);
+      }
+    }
+
     for (int i = 0; i < 4; ++i) {
-      p0b[i] = args.p0.getSubpatchAabb(bi0[i].first, bi0[i].second);
       for (int j = 0; j < 4; ++j) {
-        p1b[j] = args.p1.getSubpatchAabb(bi1[j].first, bi1[j].second);
         if (p0b[i].overlapsWith(p1b[j])) {
           RecSubdArgs nextCallArgs{.p0 = args.p0,
                                    .p1 = args.p1,
+                                   .prevB0 = p0b[i],
+                                   .prevB1 = p1b[j],
                                    .u0 = bi0[i].first,
                                    .v0 = bi0[i].second,
                                    .u1 = bi1[j].first,
@@ -529,6 +553,8 @@ int main() {
 
                 RecSubdArgs args{.p0 = patch0,
                                  .p1 = patch1,
+                                 .prevB0 = p0Boxes[k],
+                                 .prevB1 = p1Boxes[l],
                                  .u0 = {kk * s, (kk + 1) * s},
                                  .v0 = {k1 * s, (k1 + 1) * s},
                                  .u1 = {ll * s, (ll + 1) * s},
