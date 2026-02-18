@@ -154,7 +154,7 @@ auto setupProgram() {
   return program;
 }
 
-constexpr int maxRecDepth = 4;
+constexpr int maxRecDepth = 3;
 
 using MeshArray = std::vector<TriangleMesh>;
 
@@ -370,6 +370,8 @@ int main() {
   bool pWasPressedLastFrame{};
   bool upWasPressedLastFrame{};
   bool downWasPressedLastFrame{};
+  bool shouldComputeBoxes{true};
+  bool boxesCleared{true};
   float dt{};
 
   glm::vec3 diffuse;
@@ -387,6 +389,9 @@ int main() {
     allBoundsMeshes[index] = patches[index].GET_BOUND_MESHES(subdCount, &boxes);
     allBoundsBoxes[index] = std::move(boxes);
   };
+
+  MeshArray extraBoxes0[maxRecDepth + 1];
+  MeshArray extraBoxes1[maxRecDepth + 1];
 
   while (!window.shouldClose()) {
     auto start{std::chrono::steady_clock::now()};
@@ -459,6 +464,7 @@ int main() {
           ctrlPt.y += 1 * dt;
         }
         updatePatch(0);
+        shouldComputeBoxes = true;
       }
 
       if (window.keyIsPressed(GLFW_KEY_DOWN)) {
@@ -466,6 +472,7 @@ int main() {
           ctrlPt.y -= 1 * dt;
         }
         updatePatch(0);
+        shouldComputeBoxes = true;
       }
 
       if (window.keyIsPressed(GLFW_KEY_LEFT)) {
@@ -473,6 +480,7 @@ int main() {
           ctrlPt.x -= 1 * dt;
         }
         updatePatch(0);
+        shouldComputeBoxes = true;
       }
 
       if (window.keyIsPressed(GLFW_KEY_RIGHT)) {
@@ -480,6 +488,7 @@ int main() {
           ctrlPt.x += 1 * dt;
         }
         updatePatch(0);
+        shouldComputeBoxes = true;
       }
 
       if (window.keyIsPressed(GLFW_KEY_ESCAPE))
@@ -500,16 +509,12 @@ int main() {
                                          {74 / 255., 224 / 255., 74 / 255.}};
     constexpr auto patchColorCount = sizeof(patchColors) / sizeof(glm::vec3);
 
-    MeshArray extraBoxes0[maxRecDepth + 1];
-    MeshArray extraBoxes1[maxRecDepth + 1];
-
     // Collision
     bool didCollide = false;
     for (int i = 0, end = patches.size(); i < end; ++i) {
       for (int j = i; j < end; ++j) {
         auto &patch0 = patches[i], &patch1 = patches[j];
         auto &p0Boxes = allBoundsBoxes[i], &p1Boxes = allBoundsBoxes[j];
-
         for (int k = 0, boxCount0 = p0Boxes.size(); k < boxCount0; ++k) {
           auto kk = k / subdCount;
           auto k1 = k % subdCount;
@@ -551,19 +556,29 @@ int main() {
                 // change 1 to 2 if parametric space is [-1, 1] x [-1, 1]
                 const f32 s = 1.0f / subdCount; // parametric square side length
 
-                RecSubdArgs args{.p0 = patch0,
-                                 .p1 = patch1,
-                                 .prevB0 = p0Boxes[k],
-                                 .prevB1 = p1Boxes[l],
-                                 .u0 = {kk * s, (kk + 1) * s},
-                                 .v0 = {k1 * s, (k1 + 1) * s},
-                                 .u1 = {ll * s, (ll + 1) * s},
-                                 .v1 = {l1 * s, (l1 + 1) * s},
-                                 .b0 = extraBoxes0,
-                                 .b1 = extraBoxes1,
-                                 .depth = 0};
+                if (shouldComputeBoxes) {
+                  if (!boxesCleared) {
+                    for (int i = 0; i < 4; ++i) {
+                      extraBoxes0[i].clear();
+                      extraBoxes1[i].clear();
+                    }
+                    boxesCleared = true;
+                  }
 
-                subdivide(args);
+                  RecSubdArgs args{.p0 = patch0,
+                                   .p1 = patch1,
+                                   .prevB0 = p0Boxes[k],
+                                   .prevB1 = p1Boxes[l],
+                                   .u0 = {kk * s, (kk + 1) * s},
+                                   .v0 = {k1 * s, (k1 + 1) * s},
+                                   .u1 = {ll * s, (ll + 1) * s},
+                                   .v1 = {l1 * s, (l1 + 1) * s},
+                                   .b0 = extraBoxes0,
+                                   .b1 = extraBoxes1,
+                                   .depth = 0};
+
+                  subdivide(args);
+                }
 
                 // boundsColor = {1, 0, 0};
                 didCollide = true;
@@ -572,6 +587,8 @@ int main() {
           }
         }
       }
+      boxesCleared = false;
+      shouldComputeBoxes = false;
       if (!didCollide)
         boundsColor = {.5, .5, .5};
     }
@@ -601,6 +618,7 @@ int main() {
     for (int i = 0; i < maxRecDepth + 1; ++i) {
       float x = (1.0f / maxRecDepth) * i;
       diffuse = {x, 1 - x, 0};
+      diffuse = glm::normalize(diffuse);
       glUniform3fv(diffuseLoc, 1, &diffuse.x);
 
       glClear(GL_DEPTH_BUFFER_BIT);
